@@ -589,8 +589,8 @@ void GpuUtilTest::DFTbyDecomp()
 	DFTbyDecomposition DFT;
 	int wanted_input_size_x = 256;
 	int wanted_input_size_y = 256;
-	int wanted_output_size_x = 256;
-	int wanted_output_size_y = 256;
+	int wanted_output_size_x = 4096;
+	int wanted_output_size_y = 4096;
 	int wanted_number_of_iterations = 1;
 
 	DFT.InitTestCase(wanted_input_size_x,wanted_input_size_y,wanted_output_size_x,wanted_output_size_y);
@@ -626,18 +626,88 @@ void GpuUtilTest::DFTbyDecomp()
 	float t_rmsd = sqrtf(baseline_image.ReturnSumOfSquares(0,0,0,0,false));
 	wxPrintf("RMSD between cpu image before/after FFT pair is %3.3e\n", t_rmsd);
 
+	// Refresh the cpu input
+	for (int current_pixel=0; current_pixel < cpu_image_in.real_memory_allocated; current_pixel++)
+	{
+		cpu_image_in.real_values[current_pixel] = baseline_gpu_image.real_values[current_pixel];
+	}
+
 	d_gpu_in.CopyFromCpuImage(gpu_image_in);
 	d_gpu_in.CopyHostToDevice();
 	d_gpu_in.ForwardFFT(true);
 	d_gpu_in.BackwardFFT();
-	d_gpu_in.CopyDeviceToHost(true, false);
+	d_gpu_in.CopyDeviceToHost(true, true);
 	d_gpu_in.Wait();
 	baseline_gpu_image.SubtractImage(&gpu_image_in);
 	t_rmsd = sqrtf(baseline_gpu_image.ReturnSumOfSquares(0,0,0,0,false));
 	wxPrintf("RMSD between gpu image before/after FFT pair is %3.3e\n", t_rmsd);
 
+	// Refresh the gpu input
+	for (int current_pixel=0; current_pixel < cpu_image_in.real_memory_allocated; current_pixel++)
+	{
+		gpu_image_in.real_values[current_pixel] = cpu_image_in.real_values[current_pixel];
+	}
 
 
+	// Associate the test images in the DFT object. The input is copied device to host, the output is allocated directly on the GPU
+	DFT.SetGpuImages(gpu_image_in, gpu_image_out);
+	DFT.SetTwiddleAndOutputs();
+	DFT.DFT_R2C_WithPadding();
+
+	// Check the first dimension
+	Image first_dim;
+	first_dim.Allocate(cpu_image_out.logical_x_dimension,1,1,true);
+	for (int current_pixel=0; current_pixel < first_dim.real_memory_allocated; current_pixel++)
+	{
+		if (current_pixel < cpu_image_in.logical_x_dimension)
+		{
+			first_dim.real_values[current_pixel] = cpu_image_in.real_values[current_pixel];
+		}
+		else
+		{
+			first_dim.real_values[current_pixel] = 0.0f;
+		}
+	}
+
+	first_dim.ForwardFFT(false);
+	for (int current_pixel=0; current_pixel < 10; current_pixel++)
+	{
+		wxPrintf("Transformed Vals %d, %3.3e,%3.3e  %3.3e\n", current_pixel, first_dim.real_values[2*current_pixel],first_dim.real_values[2*current_pixel+1],
+				sqrtf(powf(first_dim.real_values[2*current_pixel],2)+powf(first_dim.real_values[2*current_pixel+1],2)));
+
+	}
+	for (int current_pixel=100; current_pixel < 110; current_pixel++)
+	{
+		wxPrintf("Transformed Vals %d, %3.3e,%3.3e  %3.3e\n", current_pixel, first_dim.real_values[2*current_pixel],first_dim.real_values[2*current_pixel+1],
+				sqrtf(powf(first_dim.real_values[2*current_pixel],2)+powf(first_dim.real_values[2*current_pixel+1],2)));
+
+	}
+	wxPrintf("\n\n");
+
+	for (int current_pixel=0; current_pixel < 10; current_pixel++)
+	{
+		wxPrintf("Transformed Vals %d, %3.3e,%3.3e  %3.3e\n", current_pixel, gpu_image_out.real_values[2*current_pixel],gpu_image_out.real_values[2*current_pixel+1],
+				sqrtf(powf(gpu_image_out.real_values[2*current_pixel],2)+powf(gpu_image_out.real_values[2*current_pixel+1],2)));
+
+
+	}
+	DFT.output_image.CopyDeviceToHost(true,true);
+	wxPrintf("\n\n");
+
+	for (int current_pixel=0; current_pixel < 10; current_pixel++)
+	{
+		wxPrintf("Transformed Vals %d, %3.3e,%3.3e  %3.3e\n", current_pixel, gpu_image_out.real_values[2*current_pixel],gpu_image_out.real_values[2*current_pixel+1],
+				sqrtf(powf(gpu_image_out.real_values[2*current_pixel],2)+powf(gpu_image_out.real_values[2*current_pixel+1],2)));
+
+
+	}
+	for (int current_pixel=100; current_pixel < 110; current_pixel++)
+	{
+		wxPrintf("Transformed Vals %d, %3.3e,%3.3e  %3.3e\n", current_pixel, gpu_image_out.real_values[2*current_pixel],gpu_image_out.real_values[2*current_pixel+1],
+				sqrtf(powf(gpu_image_out.real_values[2*current_pixel],2)+powf(gpu_image_out.real_values[2*current_pixel+1],2)));
+
+
+	}
 
 
 }

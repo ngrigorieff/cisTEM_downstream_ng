@@ -29,13 +29,21 @@ public:
 
 	int numel;
 	// These will point to the memory in the GpuImages, but won't have memory allocated for them.
-	cufftReal* input_image_real;
-	cufftComplex* output_image_complex;
+	cufftReal* d_input_image_real;
+	cufftComplex* d_input_image_complex;
+	bool is_set_gpu_images;
+
+	float* twiddles;
+	bool is_set_twiddles;
+	int shared_mem;
 
 
 	// To be used in development where a fake image is created.
 	void InitTestCase(int wanted_input_size_x, int wanted_input_size_y, int wanted_output_size_x, int wanted_output_size_y);
 	void SetGpuImages(Image& cpu_input, Image& cpu_output);
+	void SetTwiddleAndOutputs();
+	void DFT_R2C_WithPadding();
+
 };
 
 #endif /* SRC_GPU_DFTBYDECOMPOSITION_H_ */
