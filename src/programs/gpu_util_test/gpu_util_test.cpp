@@ -1,8 +1,6 @@
 #include "../../core/core_headers.h"
 
 
-
-
 class
 GpuUtilTest : public MyApp
 {
@@ -13,6 +11,7 @@ GpuUtilTest : public MyApp
 	void DoInteractiveUserInput();
 	void TemplateMatchingStandalone(int nGPUs, int nThreads);
 	void createImageAddOne();
+	void DFTbyDecomp();
 
 	private:
 };
@@ -37,8 +36,8 @@ bool GpuUtilTest::DoCalculation()
 //  this->createImageAddOne();
   int nThreads = 1;
   int nGPUs = 1;
-  this->TemplateMatchingStandalone(nThreads, nGPUs);
-
+//  this->TemplateMatchingStandalone(nThreads, nGPUs);
+  this->DFTbyDecomp();
   int gpuID = 0;
   wxPrintf("I made it here\n");
 
@@ -581,5 +580,64 @@ void GpuUtilTest::createImageAddOne()
 //	zeros.QuickAndDirtyWriteSlices("TestGpuOutx5.mrc",1,512);
 
     } // end of parallel omp block
+
+}
+
+void GpuUtilTest::DFTbyDecomp()
+{
+
+	DFTbyDecomposition DFT;
+	int wanted_input_size_x = 256;
+	int wanted_input_size_y = 256;
+	int wanted_output_size_x = 256;
+	int wanted_output_size_y = 256;
+	int wanted_number_of_iterations = 1;
+
+	DFT.InitTestCase(wanted_input_size_x,wanted_input_size_y,wanted_output_size_x,wanted_output_size_y);
+
+	Image cpu_image_in, cpu_image_out;
+	Image gpu_image_in, gpu_image_out;
+	Image baseline_image, baseline_gpu_image;
+	GpuImage d_gpu_in, d_gpu_image_out;
+	cpu_image_in.Allocate(wanted_input_size_x,wanted_input_size_y,true);
+	cpu_image_out.Allocate(wanted_output_size_x,wanted_output_size_y,true);
+
+	RandomNumberGenerator rg(PIf);
+	for (int current_pixel=0; current_pixel < cpu_image_in.real_memory_allocated; current_pixel++)
+	{
+		cpu_image_in.real_values[current_pixel] = rg.GetNormalRandomSTD(0.0,1.0);
+	}
+
+	// Copy of gpu images (on host)
+	gpu_image_in.CopyFrom(&cpu_image_in);
+	gpu_image_out.CopyFrom(&cpu_image_out);
+
+
+	cpu_image_in.QuickAndDirtyWriteSlice("checkRandom.mrc", 1, true, 1.0f);
+
+	// Check the accuracy relative for MKL and cuFFT
+	baseline_image.CopyFrom(&cpu_image_in);
+	baseline_gpu_image.CopyFrom(&gpu_image_in);
+
+
+	cpu_image_in.ForwardFFT(true);
+	cpu_image_in.BackwardFFT();
+	baseline_image.SubtractImage(&cpu_image_in);
+	float t_rmsd = sqrtf(baseline_image.ReturnSumOfSquares(0,0,0,0,false));
+	wxPrintf("RMSD between cpu image before/after FFT pair is %3.3e\n", t_rmsd);
+
+	d_gpu_in.CopyFromCpuImage(gpu_image_in);
+	d_gpu_in.CopyHostToDevice();
+	d_gpu_in.ForwardFFT(true);
+	d_gpu_in.BackwardFFT();
+	d_gpu_in.CopyDeviceToHost(true, false);
+	d_gpu_in.Wait();
+	baseline_gpu_image.SubtractImage(&gpu_image_in);
+	t_rmsd = sqrtf(baseline_gpu_image.ReturnSumOfSquares(0,0,0,0,false));
+	wxPrintf("RMSD between gpu image before/after FFT pair is %3.3e\n", t_rmsd);
+
+
+
+
 
 }

@@ -195,6 +195,7 @@ protected:
  // These headers are need so that gpu specific types can be instantiated outside the if(use_gpu) brackets.
 #include "../gpu/DeviceManager.h"
 #include "../gpu/GpuImage.h"
+#include "../gpu/DFTbyDecomposition.h"
 #include "../gpu/Histogram.h"
 #include "../gpu/TemplateMatchingCore.h"
 #endif
