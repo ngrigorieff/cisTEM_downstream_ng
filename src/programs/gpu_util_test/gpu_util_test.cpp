@@ -586,6 +586,8 @@ void GpuUtilTest::createImageAddOne()
 void GpuUtilTest::DFTbyDecomp()
 {
 
+	bool complex_strided = true;
+
 	DFTbyDecomposition DFT;
 	int wanted_input_size_x = 256;
 	int wanted_input_size_y = 256;
@@ -651,7 +653,14 @@ void GpuUtilTest::DFTbyDecomp()
 
 	// Associate the test images in the DFT object. The input is copied device to host, the output is allocated directly on the GPU
 	DFT.SetGpuImages(gpu_image_in, gpu_image_out);
-	DFT.DFT_R2C_WithPadding();
+	if (complex_strided)
+	{
+		DFT.DFT_R2C_WithPadding();
+	}
+	else
+	{
+		DFT.DFT_R2C_WithPadding_strided();
+	}
 
 	// Check the first dimension
 	Image first_dim, last_dim;
@@ -707,13 +716,21 @@ void GpuUtilTest::DFTbyDecomp()
 
 
 	// Complete the second dimension and calc cpu 2d xform to compare
-	DFT.DFT_C2C_WithPadding();
+	if (complex_strided)
+	{
+		DFT.DFT_C2C_WithPadding_strided();
+	}
+	else
+	{
+		DFT.DFT_C2C_WithPadding();
+	}
 	cpu_image_in.Resize(4096, 4096, 1, 0.0f);
 	cpu_image_in.ForwardFFT(false);
-//	cpu_image_in.PhaseShift(-(2048-128), -(2048-128), 0);
+	cpu_image_in.PhaseShift(-(2048-128), -(2048-128), 0);
 	cpu_image_in.QuickAndDirtyWriteSlice("cpu_shift.mrc", 1, false, 1.0);
 	DFT.output_image.CopyDeviceToHost(false,false);
-
+	gpu_image_out.is_in_real_space = false; //
+    gpu_image_out.QuickAndDirtyWriteSlice("DFT_xformed.mrc", 1, false, 1.0);
 	wxPrintf("2d cpu\n\n");
 
 	for (int current_pixel=0; current_pixel < 10; current_pixel++)
@@ -742,25 +759,35 @@ void GpuUtilTest::DFTbyDecomp()
     GpuImage paddedGpu;
     paddedGpu.CopyFromCpuImage(cpu_image_in);
     paddedGpu.CopyHostToDevice();
-    paddedGpu.QuickAndDirtyWriteSlices("test.mrc",1,1);
-    int nLoops = 10000;
+    int nLoops = 2;
+//	for (int iLoop = 0; iLoop < nLoops; iLoop++)
+//	{
+//		timer.start("padded");
+//		paddedGpu.ForwardFFT(false);
+//		paddedGpu.Wait();
+//		timer.lap("padded");
+//		if (iLoop == 0)     paddedGpu.QuickAndDirtyWriteSlices("FFT_forward.mrc",1,1);
+//
+//		paddedGpu.BackwardFFT();
+//		paddedGpu.AddConstant(rg.GetNormalRandom());
+//
+//
+//	}
+
 	for (int iLoop = 0; iLoop < nLoops; iLoop++)
 	{
-		timer.start("padded");
-		paddedGpu.ForwardFFT(false);
-		paddedGpu.Wait();
-		timer.lap("padded");
-		paddedGpu.BackwardFFT();
-		paddedGpu.AddConstant(rg.GetNormalRandom());
-
-
-	}
-
-	for (int iLoop = 0; iLoop < nLoops/10; iLoop++)
-	{
 		timer.start("GPU");
+		if (complex_strided)
+		{
 			DFT.DFT_R2C_WithPadding();
+			DFT.DFT_C2C_WithPadding_strided();
+		}
+		else
+		{
+			DFT.DFT_R2C_WithPadding_strided();
 			DFT.DFT_C2C_WithPadding();
+		}
+
 		timer.lap("GPU");
 	}
 

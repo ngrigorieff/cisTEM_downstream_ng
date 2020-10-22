@@ -43,6 +43,8 @@ public:
 	void SetGpuImages(Image& cpu_input, Image& cpu_output);
 	void DFT_R2C_WithPadding();
 	void DFT_C2C_WithPadding();
+	void DFT_R2C_WithPadding_strided();
+	void DFT_C2C_WithPadding_strided();
 
 
 };
