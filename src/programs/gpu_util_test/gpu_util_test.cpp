@@ -651,7 +651,6 @@ void GpuUtilTest::DFTbyDecomp()
 
 	// Associate the test images in the DFT object. The input is copied device to host, the output is allocated directly on the GPU
 	DFT.SetGpuImages(gpu_image_in, gpu_image_out);
-	DFT.SetTwiddleAndOutputs();
 	DFT.DFT_R2C_WithPadding();
 
 	// Check the first dimension
@@ -695,7 +694,7 @@ void GpuUtilTest::DFTbyDecomp()
 	DFT.output_image.CopyDeviceToHost(true,true);
 	wxPrintf("\n\n");
 	wxPrintf("Bound X %ld\n", gpu_image_out.logical_upper_bound_complex_x);
-	last_index = (gpu_image_out.logical_upper_bound_complex_x + 2)*(cpu_image_in.logical_y_dimension-2);
+	last_index = (gpu_image_out.logical_upper_bound_complex_x + 1)*(cpu_image_in.logical_y_dimension-2);
 
 	for (int current_pixel=0; current_pixel < 10; current_pixel++)
 	{

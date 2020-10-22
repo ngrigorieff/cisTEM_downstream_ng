@@ -41,8 +41,9 @@ public:
 	// To be used in development where a fake image is created.
 	void InitTestCase(int wanted_input_size_x, int wanted_input_size_y, int wanted_output_size_x, int wanted_output_size_y);
 	void SetGpuImages(Image& cpu_input, Image& cpu_output);
-	void SetTwiddleAndOutputs();
 	void DFT_R2C_WithPadding();
+	void DFT_C2C_WithPadding();
+
 
 };
 
