@@ -7,7 +7,7 @@
 
 #include "gpu_core_headers.h"
 
-__global__ void DFT_R2C_WithPaddingKernel(cufftReal* input_values, cufftComplex* output_values, float* input_twiddles, int4 dims_in, int4 dims_out);
+__global__ void DFT_R2C_WithPaddingKernel(cufftReal* input_values, cufftComplex* output_values, float* input_twiddles, int4 dims_in, int4 dims_out, float C);
 
 
 DFTbyDecomposition::DFTbyDecomposition() // @suppress("Class members should be properly initialized")
@@ -110,87 +110,68 @@ void DFTbyDecomposition::DFT_R2C_WithPadding()
 	pre_checkErrorsAndTimingWithSynchronization(cudaStreamPerThread);
 
 	int div = 1;
-	int threadsPerBlock = input_image.dims.x;
-	dim3 gridDims = dim3((output_image.dims.w/2 + threadsPerBlock - 1) / threadsPerBlock,
-					  	1, 1);
+	int threadsPerBlock = input_image.dims.x; // FIXME make sure its a multiple of 32
+	int gridDims = input_image.dims.y;
+//	dim3 gridDims = dim3((output_image.dims.w/2 + threadsPerBlock - 1) / threadsPerBlock,
+//					  	1, 1);
 //  output_image.dims.y
-	wxPrintf("Threads n grids %d %d %d %d shared mem %d\n",threadsPerBlock,gridDims.x,gridDims.y,gridDims.z,shared_mem);
 
-	output_image.printVal("Before",0);
-	output_image.printVal("Before",10);
 
-	DFT_R2C_WithPaddingKernel<< <gridDims, threadsPerBlock, shared_mem, cudaStreamPerThread>> > ( input_image.real_values_gpu,  output_image.complex_values_gpu, twiddles, input_image.dims, output_image.dims);
+	float C = -2*PIf/output_image.dims.x;
+	DFT_R2C_WithPaddingKernel<< <gridDims, threadsPerBlock, shared_mem, cudaStreamPerThread>> > ( input_image.real_values_gpu,  output_image.complex_values_gpu, twiddles, input_image.dims, output_image.dims, C);
 	cudaStreamSynchronize(cudaStreamPerThread);
-	output_image.printVal("After",0);
-	output_image.printVal("After",10);
 
 
 	checkErrorsAndTimingWithSynchronization(cudaStreamPerThread);
 
 }
 
-__global__ void DFT_R2C_WithPaddingKernel(cufftReal* input_values, cufftComplex* output_values, float* input_twiddles, int4 dims_in, int4 dims_out)
+__global__ void DFT_R2C_WithPaddingKernel(cufftReal* input_values, cufftComplex* output_values, float* input_twiddles, int4 dims_in, int4 dims_out, float C)
 {
 
 //	// Initialize the shared memory, assuming everying matches the input data X size in
 	extern __shared__ float s[];
-//    __shared__ float s[2056];
-
-	float *data   = s;
-	float *twiddles = (float*)&data[dims_in.x];
-//	float *output   = (float*)&twiddles[dims_out.w];
+	// Avoid N*k type conversion and multiplication
+	float* data = s;
+//	float* coeff= (float*)&data[dims_in.x];
 
 
 	int x = threadIdx.x;
-	int r = 2*x;
-	int i = 2*x+1;
-	int k = blockIdx.x * blockDim.x + threadIdx.x;
-	if (x > dims_in.x)
-	if (k > dims_out.w/2) return;
+	int pixel_out = dims_out.w/2*blockIdx.x;
 
-	// Every thread works on one spatial freq (k) looping over the N real inputs
-	// There are N threads in a block
-	// Each real vector is divided into NOUT/N
-	// There are input dims y blocks in the Y direction
 
-	data[x] = __ldg((const float *)&input_values[dims_in.w*blockIdx.y + x]);
-	twiddles[r] = __ldg((const float *)&input_twiddles[k]);
-	twiddles[i] = __ldg((const float *)&input_twiddles[k]);
+	data[x] = __ldg((const float *)&input_values[dims_in.w*blockIdx.x + x]);
+//	coeff[x]= C*(float)k;
 
 	__syncthreads();
 //
 //	 Loop over N updating the actual twiddle value along the way. This might lead to accuracy problems.
-	float sum_real = 0.0f;
-	float sum_imag = 0.0f;
-	float twi_real = twiddles[r];
-	float twi_imag = twiddles[i];
-	float tmp;
+	float sum_real;
+	float sum_imag;
+	float twi_r;
+	float twi_i;
+	float coeff;
 
-
-	for (int n = 0; n < dims_in.x; n++)
+	for (int k = threadIdx.x; k < dims_out.w/2; k+=blockDim.x)
 	{
-//		sum_real += data[n] * twi_real;
-//		sum_imag += data[n] * twi_imag;
-//		tmp = twi_real;
-//		twi_real = twi_real*twiddles[r] - twi_imag*twiddles[i];
-//		twi_imag = twi_imag*twiddles[r] + tmp * twiddles[i];
+		coeff = C*(float)k;
+		sum_real = 0.0f;
+		sum_imag = 0.0f;
+		for (int n = 0; n < dims_in.x; n++)
+		{
+			__sincosf(coeff*n,&twi_i,&twi_r);
+			sum_real = __fmaf_rn(data[n],twi_r,sum_real);
+			sum_imag = __fmaf_rn(data[n],twi_i,sum_imag);
+		}
 
-//		twi_real = __fmaf_rn(twi_real,twiddles[r],-twi_imag*twiddles[i]);
-//		twi_imag = __fmaf_rn(twi_imag,twiddles[r], tmp*twiddles[i]);
-		sum_real += data[n] * cosf(-2*PIf*n*k/dims_out.x);
-		sum_imag += data[n] * sinf(-2*PIf*n*k/dims_out.x);
+		// Not sure if an async write, or storage to a shared mem temp would be faster.
+		output_values[pixel_out + k].x = sum_real;
+		output_values[pixel_out + k].y = sum_imag;
 	}
 
-//	output[r] = sum_real;
-//	output[i] = sum_imag;
-//
-	__syncthreads();
 
-//		if (k==3) {output_values[0].x=(float)dims_out.w*blockIdx.y;}
-	//	if (k==3) {output_values[0].y=(float)k;}
 
-		output_values[dims_out.w*blockIdx.y + k].x = sum_real;//output[r];
-		output_values[dims_out.w*blockIdx.y + k].y = sum_imag;//output[r];
+
 
 //		output_values[dims_out.w*blockIdx.y + x].y =  -3;//sum_imag;//output[i];
 
