@@ -115,7 +115,7 @@ void DFTbyDecomposition::DFT_R2C_WithPadding()
 //	dim3 gridDims = dim3((output_image.dims.w/2 + threadsPerBlock - 1) / threadsPerBlock,
 //					  	1, 1);
 //  output_image.dims.y
-
+wxPrintf("Half dim gpu %d\n\n",output_image.dims.w/2);
 
 	float C = -2*PIf/output_image.dims.x;
 	DFT_R2C_WithPaddingKernel<< <gridDims, threadsPerBlock, shared_mem, cudaStreamPerThread>> > ( input_image.real_values_gpu,  output_image.complex_values_gpu, twiddles, input_image.dims, output_image.dims, C);
@@ -137,7 +137,7 @@ __global__ void DFT_R2C_WithPaddingKernel(cufftReal* input_values, cufftComplex*
 
 
 	int x = threadIdx.x;
-	int pixel_out = dims_out.w/2*blockIdx.x;
+	int pixel_out = (1+dims_out.w/2)*blockIdx.x;
 
 
 	data[x] = __ldg((const float *)&input_values[dims_in.w*blockIdx.x + x]);
