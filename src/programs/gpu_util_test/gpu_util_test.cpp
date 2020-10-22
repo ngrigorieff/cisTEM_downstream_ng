@@ -586,7 +586,7 @@ void GpuUtilTest::createImageAddOne()
 void GpuUtilTest::DFTbyDecomp()
 {
 
-	bool complex_strided = true;
+	bool complex_strided = false;
 
 	DFTbyDecomposition DFT;
 	int wanted_input_size_x = 256;
@@ -722,7 +722,7 @@ void GpuUtilTest::DFTbyDecomp()
 	}
 	else
 	{
-		DFT.DFT_C2C_WithPadding();
+		DFT.DFT_C2C_WithPadding_rdx2();
 	}
 	cpu_image_in.Resize(4096, 4096, 1, 0.0f);
 	cpu_image_in.ForwardFFT(false);
@@ -759,7 +759,7 @@ void GpuUtilTest::DFTbyDecomp()
     GpuImage paddedGpu;
     paddedGpu.CopyFromCpuImage(cpu_image_in);
     paddedGpu.CopyHostToDevice();
-    int nLoops = 2;
+    int nLoops = 20000;
 //	for (int iLoop = 0; iLoop < nLoops; iLoop++)
 //	{
 //		timer.start("padded");
@@ -785,7 +785,7 @@ void GpuUtilTest::DFTbyDecomp()
 		else
 		{
 			DFT.DFT_R2C_WithPadding_strided();
-			DFT.DFT_C2C_WithPadding();
+			DFT.DFT_C2C_WithPadding_rdx2();
 		}
 
 		timer.lap("GPU");

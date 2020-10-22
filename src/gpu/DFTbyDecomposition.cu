@@ -11,6 +11,7 @@ __global__ void DFT_R2C_WithPaddingKernel(cufftReal* input_values, cufftComplex*
 __global__ void DFT_C2C_WithPaddingKernel_strided(cufftComplex* input_values, int4 dims_in, int4 dims_out, float C);
 __global__ void DFT_R2C_WithPaddingKernel_strided(cufftReal* input_values, cufftComplex* output_values, int4 dims_in, int4 dims_out, float C);
 __global__ void DFT_C2C_WithPaddingKernel(cufftComplex* input_values, int4 dims_in, int4 dims_out, float C);
+__global__ void DFT_C2C_WithPaddingKernel_rdx2(cufftComplex* input_values, int4 dims_in, int4 dims_out, float C);
 
 
 DFTbyDecomposition::DFTbyDecomposition() // @suppress("Class members should be properly initialized")
@@ -180,8 +181,7 @@ __global__ void DFT_C2C_WithPaddingKernel(cufftComplex* inplace_image, int4 dims
 	__syncthreads();
 //
 //	 Loop over N updating the actual twiddle value along the way. This might lead to accuracy problems.
-	float sum_real;
-	float sum_imag;
+	cufftComplex sum;
 	float twi_r;
 	float twi_i;
 	float coeff;
@@ -190,21 +190,22 @@ __global__ void DFT_C2C_WithPaddingKernel(cufftComplex* inplace_image, int4 dims
 	for (int k = threadIdx.x; k < dims_out.w/2; k+=blockDim.x)
 	{
 		coeff = C*(float)k;
-		sum_real = 0.0f;
-		sum_imag = 0.0f;
+		sum.x = 0.0f;
+		sum.y = 0.0f;
 		for (int n = 0; n < dims_in.y; n++)
 		{
 			__sincosf(coeff*n,&twi_i,&twi_r);
 			tmp = data[n].x * twi_i;
-			sum_real += __fmaf_rn(data[n].x, twi_r, -twi_i * data[n].y);
-			sum_imag += __fmaf_rn(data[n].y, twi_r, tmp);
+			sum.x += __fmaf_rn(data[n].x, twi_r, -twi_i * data[n].y);
+			sum.y += __fmaf_rn(data[n].y, twi_r, tmp);
 		}
 
 		// Not sure if an async write, or storage to a shared mem temp would be faster.
-		inplace_image[pixel_out + k].x = sum_real;
-		inplace_image[pixel_out + k].y = sum_imag;
-
+//		inplace_image[pixel_out + k].x = sum_real;
+//		inplace_image[pixel_out + k].y = sum_imag;
+		inplace_image[pixel_out + k] = sum;
 	}
+
 
 
 	return;
@@ -228,7 +229,7 @@ void DFTbyDecomposition::DFT_R2C_WithPadding_strided()
 //  output_image.dims.y
 	int shared_mem = sizeof(float)*input_image.dims.y;
 	float C = -2*PIf/output_image.dims.y;
-	DFT_R2C_WithPaddingKernel<< <gridDims, threadsPerBlock, shared_mem, cudaStreamPerThread>> > ( input_image.real_values_gpu,  output_image.complex_values_gpu, input_image.dims, output_image.dims, C);
+	DFT_R2C_WithPaddingKernel_strided<< <gridDims, threadsPerBlock, shared_mem, cudaStreamPerThread>> > ( input_image.real_values_gpu,  output_image.complex_values_gpu, input_image.dims, output_image.dims, C);
 	cudaStreamSynchronize(cudaStreamPerThread);
 
 
@@ -246,7 +247,7 @@ __global__ void DFT_R2C_WithPaddingKernel_strided(cufftReal* input_values, cufft
 
 
 	int y = threadIdx.x;
-	int pixel_in = blockIdx.x + y * (dims_out.w/2);
+	int pixel_in = blockIdx.x + y * (dims_in.w);
 
 	data[y] = __ldg((const cufftReal *)&input_values[pixel_in]);
 	__syncthreads();
@@ -298,7 +299,7 @@ void DFTbyDecomposition::DFT_C2C_WithPadding_strided()
 	int shared_mem = sizeof(cufftComplex)*input_image.dims.y;
 
 	float C = -2*PIf/output_image.dims.y;
-	DFT_C2C_WithPaddingKernel<< <gridDims, threadsPerBlock, shared_mem, cudaStreamPerThread>> > ( output_image.complex_values_gpu, input_image.dims, output_image.dims, C);
+	DFT_C2C_WithPaddingKernel_strided<< <gridDims, threadsPerBlock, shared_mem, cudaStreamPerThread>> > ( output_image.complex_values_gpu, input_image.dims, output_image.dims, C);
 	cudaStreamSynchronize(cudaStreamPerThread);
 
 
@@ -346,6 +347,98 @@ __global__ void DFT_C2C_WithPaddingKernel_strided(cufftComplex* inplace_image, i
 		inplace_image[blockIdx.x + k * (dims_out.w/2)].x = sum_real;
 		inplace_image[blockIdx.x + k * (dims_out.w/2)].y = sum_imag;
 	}
+
+
+	return;
+
+}
+
+void DFTbyDecomposition::DFT_C2C_WithPadding_rdx2()
+{
+
+	// FIXME when adding real space complex images
+	MyAssertTrue( input_image.is_in_memory_gpu, "Input image is in not on the GPU!");
+	MyAssertTrue( output_image.is_in_memory_gpu, "Output image is in not on the GPU!");
+
+
+	int threadsPerBlock = input_image.dims.x; // FIXME make sure its a multiple of 32
+	int gridDims = output_image.dims.w/2;
+
+	int shared_mem = sizeof(cufftComplex)*input_image.dims.x;
+
+	float C = -2*PIf/output_image.dims.x*2;
+	DFT_C2C_WithPaddingKernel_rdx2<< <gridDims, threadsPerBlock, shared_mem, cudaStreamPerThread>> > ( output_image.complex_values_gpu, input_image.dims, output_image.dims, C);
+	cudaStreamSynchronize(cudaStreamPerThread);
+
+
+
+}
+
+__global__ void DFT_C2C_WithPaddingKernel_rdx2(cufftComplex* inplace_image, int4 dims_in, int4 dims_out, float C)
+{
+
+	// Initialize the shared memory, assuming everying matches the input data X size in
+	// Check that setting cudaFuncSetSharedMemConfig  to 8byte makes any diff for complex reads
+	extern __shared__ cufftComplex c[];
+	cufftComplex* data = c;
+
+
+	int x = threadIdx.x;
+	int pixel_out = (dims_out.w/2)*blockIdx.x;
+
+	data[x] = __ldg((const cufftComplex *)&inplace_image[pixel_out + x]);
+	__syncthreads();
+//
+//	 Loop over N updating the actual twiddle value along the way. This might lead to accuracy problems.
+	cufftComplex sum;
+	cufftComplex eve;
+	float twi_r;
+	float twi_i;
+	float coeff;
+	float tmp;
+
+	for (int k = threadIdx.x; k < dims_out.w/4; k+=blockDim.x)
+	{
+		// get the even DFT
+		coeff = C*(float)k;
+		sum.x = 0.0f;
+		sum.y = 0.0f;
+		for (int n = 0; n < dims_in.y; n+=2)
+		{
+			__sincosf(coeff*n,&twi_i,&twi_r);
+			tmp = data[n].x * twi_i;
+			sum.x += __fmaf_rn(data[n].x, twi_r, -twi_i * data[n].y);
+			sum.y += __fmaf_rn(data[n].y, twi_r, tmp);
+		}
+
+		eve = sum;
+
+		// get the odd DFT
+		sum.x = 0.0f;
+		sum.y = 0.0f;
+		for (int n = 1; n < dims_in.y; n+=2)
+		{
+			__sincosf(coeff*n,&twi_i,&twi_r);
+			tmp = data[n].x * twi_i;
+			sum.x += __fmaf_rn(data[n].x, twi_r, -twi_i * data[n].y);
+			sum.y += __fmaf_rn(data[n].y, twi_r, tmp);
+		}
+
+		// Get the twiddle for the combined radix
+		__sincosf(coeff/2.0f,&twi_i,&twi_r);
+		// Multiply the odd
+		tmp = sum.x * twi_i;
+		sum.x = __fmaf_rn(sum.x, twi_r, -twi_i * sum.y);
+		sum.y = __fmaf_rn(sum.y, twi_r, tmp);
+
+		inplace_image[pixel_out + k].x = eve.x + sum.x;
+		inplace_image[pixel_out + k].y = eve.y + sum.y;
+
+		inplace_image[pixel_out + k + dims_out.w/4].x = eve.x - sum.x;
+		inplace_image[pixel_out + k + dims_out.w/4].y = eve.y - sum.y;
+
+	}
+
 
 
 	return;
