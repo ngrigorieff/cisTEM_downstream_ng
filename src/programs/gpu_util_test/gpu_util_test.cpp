@@ -691,9 +691,8 @@ void GpuUtilTest::DFTbyDecomp()
 	wxPrintf("\n\n");
 
 
-	DFT.output_image.CopyDeviceToHost(true,true);
+	DFT.output_image.CopyDeviceToHost(false,false);
 	wxPrintf("\n\n");
-	wxPrintf("Bound X %ld\n", gpu_image_out.logical_upper_bound_complex_x);
 	last_index = (gpu_image_out.logical_upper_bound_complex_x + 1)*(cpu_image_in.logical_y_dimension-2);
 
 	for (int current_pixel=0; current_pixel < 10; current_pixel++)
@@ -707,6 +706,66 @@ void GpuUtilTest::DFTbyDecomp()
 	}
 
 
+	// Complete the second dimension and calc cpu 2d xform to compare
+	DFT.DFT_C2C_WithPadding();
+	cpu_image_in.Resize(4096, 4096, 1, 0.0f);
+	cpu_image_in.ForwardFFT(false);
+//	cpu_image_in.PhaseShift(-(2048-128), -(2048-128), 0);
+	cpu_image_in.QuickAndDirtyWriteSlice("cpu_shift.mrc", 1, false, 1.0);
+	DFT.output_image.CopyDeviceToHost(false,false);
+
+	wxPrintf("2d cpu\n\n");
+
+	for (int current_pixel=0; current_pixel < 10; current_pixel++)
+	{
+		wxPrintf("Transformed Vals %d, %3.3e,%3.3e  %3.3e :LAST: %d %3.3e,%3.3e  %3.3e\n",
+				current_pixel, cpu_image_in.real_values[2*current_pixel],cpu_image_in.real_values[2*current_pixel+1],
+				sqrtf(powf(cpu_image_in.real_values[2*current_pixel],2)+powf(cpu_image_in.real_values[2*current_pixel+1],2)),
+				current_pixel + last_index,cpu_image_in.real_values[2*(current_pixel + last_index)],cpu_image_in.real_values[2*(current_pixel + last_index)+1],
+				sqrtf(powf(cpu_image_in.real_values[2*(current_pixel + last_index)],2)+powf(cpu_image_in.real_values[2*(current_pixel + last_index)+1],2)));
+	}
+	wxPrintf("2d GPU \n\n");
+
+	for (int current_pixel=0; current_pixel < 10; current_pixel++)
+	{
+		wxPrintf("Transformed Vals %d, %3.3e,%3.3e  %3.3e :LAST: %d %3.3e,%3.3e  %3.3e\n",
+				current_pixel, gpu_image_out.real_values[2*current_pixel],gpu_image_out.real_values[2*current_pixel+1],
+				sqrtf(powf(gpu_image_out.real_values[2*current_pixel],2)+powf(gpu_image_out.real_values[2*current_pixel+1],2)),
+				current_pixel + last_index,gpu_image_out.real_values[2*(current_pixel + last_index)],gpu_image_out.real_values[2*(current_pixel + last_index)+1],
+				sqrtf(powf(gpu_image_out.real_values[2*(current_pixel + last_index)],2)+powf(gpu_image_out.real_values[2*(current_pixel + last_index)+1],2)));
+	}
+	wxPrintf("\n\n");
+
+	// Timing
+	StopWatch timer;
+	cpu_image_in.BackwardFFT();
+    GpuImage paddedGpu;
+    paddedGpu.CopyFromCpuImage(cpu_image_in);
+    paddedGpu.CopyHostToDevice();
+    paddedGpu.QuickAndDirtyWriteSlices("test.mrc",1,1);
+    int nLoops = 10000;
+	for (int iLoop = 0; iLoop < nLoops; iLoop++)
+	{
+		timer.start("padded");
+		paddedGpu.ForwardFFT(false);
+		paddedGpu.Wait();
+		timer.lap("padded");
+		paddedGpu.BackwardFFT();
+		paddedGpu.AddConstant(rg.GetNormalRandom());
+
+
+	}
+
+	for (int iLoop = 0; iLoop < nLoops/10; iLoop++)
+	{
+		timer.start("GPU");
+			DFT.DFT_R2C_WithPadding();
+			DFT.DFT_C2C_WithPadding();
+		timer.lap("GPU");
+	}
+
+
+	timer.print_times();
 
 
 }

@@ -88,7 +88,6 @@ void DFTbyDecomposition::DFT_R2C_WithPadding()
 //					  	1, 1);
 //  output_image.dims.y
 	int shared_mem = sizeof(float)*input_image.dims.x;
-wxPrintf("DIMS DIMS %d\n",output_image.dims.w/2);
 	float C = -2*PIf/output_image.dims.x;
 	DFT_R2C_WithPaddingKernel<< <gridDims, threadsPerBlock, shared_mem, cudaStreamPerThread>> > ( input_image.real_values_gpu,  output_image.complex_values_gpu, input_image.dims, output_image.dims, C);
 	cudaStreamSynchronize(cudaStreamPerThread);
