@@ -659,7 +659,7 @@ void GpuUtilTest::DFTbyDecomp()
 	}
 	else
 	{
-		DFT.DFT_R2C_WithPadding_strided();
+		DFT.FFT_R2C_WithPadding_strided();
 	}
 
 	// Check the first dimension
@@ -784,7 +784,7 @@ void GpuUtilTest::DFTbyDecomp()
 		}
 		else
 		{
-			DFT.DFT_R2C_WithPadding_strided();
+			DFT.FFT_R2C_WithPadding_strided();
 			DFT.DFT_C2C_WithPadding_rdx2();
 		}
 
