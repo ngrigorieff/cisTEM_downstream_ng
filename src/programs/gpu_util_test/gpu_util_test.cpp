@@ -589,10 +589,10 @@ void GpuUtilTest::DFTbyDecomp()
 	bool complex_strided = false;
 
 	DFTbyDecomposition DFT;
-	int wanted_input_size_x = 256;
-	int wanted_input_size_y = 256;
-	int wanted_output_size_x = 4096;
-	int wanted_output_size_y = 4096;
+	int wanted_input_size_x = 16;
+	int wanted_input_size_y = wanted_input_size_x;
+	int wanted_output_size_x = wanted_input_size_x;
+	int wanted_output_size_y = wanted_input_size_x;
 	int wanted_number_of_iterations = 1;
 
 	DFT.InitTestCase(wanted_input_size_x,wanted_input_size_y,wanted_output_size_x,wanted_output_size_y);
@@ -687,7 +687,7 @@ void GpuUtilTest::DFTbyDecomp()
 	first_dim.ForwardFFT(false);
 	last_dim.ForwardFFT(false);
 	wxPrintf("Half dim %ld\n",first_dim.real_memory_allocated/2);
-	for (int current_pixel=0; current_pixel < 10; current_pixel++)
+	for (int current_pixel=0; current_pixel < 16; current_pixel++)
 	{
 		wxPrintf("Transformed Vals %d, %3.3e,%3.3e  %3.3e :LAST: %d %3.3e,%3.3e  %3.3e\n",
 				current_pixel, first_dim.real_values[2*current_pixel],first_dim.real_values[2*current_pixel+1],
@@ -704,7 +704,7 @@ void GpuUtilTest::DFTbyDecomp()
 	wxPrintf("\n\n");
 	last_index = (gpu_image_out.logical_upper_bound_complex_x + 1)*(cpu_image_in.logical_y_dimension-2);
 
-	for (int current_pixel=0; current_pixel < 10; current_pixel++)
+	for (int current_pixel=0; current_pixel < gpu_image_out.real_memory_allocated; current_pixel+=(gpu_image_out.logical_x_dimension+gpu_image_out.padding_jump_value))
 	{
 		wxPrintf("Transformed Vals %d, %3.3e,%3.3e  %3.3e :LAST: %d %3.3e,%3.3e  %3.3e\n",
 				current_pixel, gpu_image_out.real_values[2*current_pixel],gpu_image_out.real_values[2*current_pixel+1],
@@ -733,7 +733,7 @@ void GpuUtilTest::DFTbyDecomp()
     gpu_image_out.QuickAndDirtyWriteSlice("DFT_xformed.mrc", 1, false, 1.0);
 	wxPrintf("2d cpu\n\n");
 
-	for (int current_pixel=0; current_pixel < 10; current_pixel++)
+	for (int current_pixel=0; current_pixel < 16; current_pixel++)
 	{
 		wxPrintf("Transformed Vals %d, %3.3e,%3.3e  %3.3e :LAST: %d %3.3e,%3.3e  %3.3e\n",
 				current_pixel, cpu_image_in.real_values[2*current_pixel],cpu_image_in.real_values[2*current_pixel+1],
@@ -743,7 +743,7 @@ void GpuUtilTest::DFTbyDecomp()
 	}
 	wxPrintf("2d GPU \n\n");
 
-	for (int current_pixel=0; current_pixel < 10; current_pixel++)
+	for (int current_pixel=0; current_pixel < 16; current_pixel++)
 	{
 		wxPrintf("Transformed Vals %d, %3.3e,%3.3e  %3.3e :LAST: %d %3.3e,%3.3e  %3.3e\n",
 				current_pixel, gpu_image_out.real_values[2*current_pixel],gpu_image_out.real_values[2*current_pixel+1],
