@@ -586,7 +586,7 @@ void GpuUtilTest::createImageAddOne()
 void GpuUtilTest::DFTbyDecomp()
 {
 
-	bool complex_strided = false;
+	bool complex_strided = true;
 
 	DFTbyDecomposition DFT;
 	int wanted_input_size_x = 16;
@@ -704,7 +704,7 @@ void GpuUtilTest::DFTbyDecomp()
 	wxPrintf("\n\n");
 	last_index = (gpu_image_out.logical_upper_bound_complex_x + 1)*(cpu_image_in.logical_y_dimension-2);
 
-	for (int current_pixel=0; current_pixel < gpu_image_out.real_memory_allocated; current_pixel+=(gpu_image_out.logical_x_dimension+gpu_image_out.padding_jump_value))
+	for (int current_pixel=0; current_pixel < 16; current_pixel++)
 	{
 		wxPrintf("Transformed Vals %d, %3.3e,%3.3e  %3.3e :LAST: %d %3.3e,%3.3e  %3.3e\n",
 				current_pixel, gpu_image_out.real_values[2*current_pixel],gpu_image_out.real_values[2*current_pixel+1],

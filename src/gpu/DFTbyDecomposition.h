@@ -47,6 +47,8 @@ public:
 	void DFT_C2C_WithPadding_strided();
 	void DFT_C2C_WithPadding_rdx2();
 	void FFT_R2C_WithPadding_strided();
+	void FFT_R2C_WithPadding();
+
 
 
 
