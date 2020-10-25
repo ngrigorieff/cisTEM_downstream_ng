@@ -591,8 +591,8 @@ void GpuUtilTest::DFTbyDecomp()
 	DFTbyDecomposition DFT;
 	int wanted_input_size_x = 16;
 	int wanted_input_size_y = wanted_input_size_x;
-	int wanted_output_size_x = wanted_input_size_x;
-	int wanted_output_size_y = wanted_input_size_x;
+	int wanted_output_size_x = 1*wanted_input_size_x;
+	int wanted_output_size_y = 1*wanted_input_size_x;
 	int wanted_number_of_iterations = 1;
 
 	DFT.InitTestCase(wanted_input_size_x,wanted_input_size_y,wanted_output_size_x,wanted_output_size_y);
@@ -655,7 +655,7 @@ void GpuUtilTest::DFTbyDecomp()
 	DFT.SetGpuImages(gpu_image_in, gpu_image_out);
 	if (complex_strided)
 	{
-		DFT.DFT_R2C_WithPadding();
+		DFT.FFT_R2C_WithPadding();
 	}
 	else
 	{
@@ -718,15 +718,15 @@ void GpuUtilTest::DFTbyDecomp()
 	// Complete the second dimension and calc cpu 2d xform to compare
 	if (complex_strided)
 	{
-		DFT.DFT_C2C_WithPadding_strided();
+		DFT.FFT_C2C_WithPadding_strided();
 	}
 	else
 	{
-		DFT.DFT_C2C_WithPadding_rdx2();
+		DFT.DFT_C2C_WithPadding();
 	}
-	cpu_image_in.Resize(4096, 4096, 1, 0.0f);
+	cpu_image_in.Resize(wanted_output_size_x, wanted_output_size_y, 1, 0.0f);
 	cpu_image_in.ForwardFFT(false);
-	cpu_image_in.PhaseShift(-(2048-128), -(2048-128), 0);
+	cpu_image_in.PhaseShift(-(wanted_output_size_x/2-wanted_input_size_x/2), -(wanted_output_size_y/2-wanted_input_size_y/2), 0);
 	cpu_image_in.QuickAndDirtyWriteSlice("cpu_shift.mrc", 1, false, 1.0);
 	DFT.output_image.CopyDeviceToHost(false,false);
 	gpu_image_out.is_in_real_space = false; //
