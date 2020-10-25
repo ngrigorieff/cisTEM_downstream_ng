@@ -586,7 +586,7 @@ void GpuUtilTest::createImageAddOne()
 void GpuUtilTest::DFTbyDecomp()
 {
 
-	bool complex_strided = true;
+	bool complex_strided = false;
 
 	DFTbyDecomposition DFT;
 	int wanted_input_size_x = 16;
@@ -667,12 +667,20 @@ void GpuUtilTest::DFTbyDecomp()
 	first_dim.Allocate(cpu_image_out.logical_x_dimension,1,1,true);
 	last_dim.Allocate(cpu_image_out.logical_x_dimension,1,1,true);
 	int last_index = (cpu_image_in.logical_x_dimension + cpu_image_in.padding_jump_value)*(cpu_image_in.logical_y_dimension-2);
-
+	int actual_pixel;
 	for (int current_pixel=0; current_pixel < first_dim.real_memory_allocated; current_pixel++)
 	{
+		if (complex_strided)
+		{
+			actual_pixel = current_pixel;
+		}
+		else
+		{
+			actual_pixel = current_pixel * (first_dim.logical_x_dimension + first_dim.padding_jump_value);
+		}
 		if (current_pixel < cpu_image_in.logical_x_dimension)
 		{
-			first_dim.real_values[current_pixel] = cpu_image_in.real_values[current_pixel];
+			first_dim.real_values[current_pixel] = cpu_image_in.real_values[actual_pixel];
 			last_dim.real_values[current_pixel] = cpu_image_in.real_values[last_index+current_pixel];
 
 		}
@@ -702,17 +710,37 @@ void GpuUtilTest::DFTbyDecomp()
 
 	DFT.output_image.CopyDeviceToHost(false,false);
 	wxPrintf("\n\n");
-	last_index = (gpu_image_out.logical_upper_bound_complex_x + 1)*(cpu_image_in.logical_y_dimension-2);
 
-	for (int current_pixel=0; current_pixel < 16; current_pixel++)
+	if (complex_strided)
 	{
-		wxPrintf("Transformed Vals %d, %3.3e,%3.3e  %3.3e :LAST: %d %3.3e,%3.3e  %3.3e\n",
-				current_pixel, gpu_image_out.real_values[2*current_pixel],gpu_image_out.real_values[2*current_pixel+1],
-				sqrtf(powf(gpu_image_out.real_values[2*current_pixel],2)+powf(gpu_image_out.real_values[2*current_pixel+1],2)),
-				current_pixel + last_index,gpu_image_out.real_values[2*(current_pixel + last_index)],gpu_image_out.real_values[2*(current_pixel + last_index)+1],
-				sqrtf(powf(gpu_image_out.real_values[2*(current_pixel + last_index)],2)+powf(gpu_image_out.real_values[2*(current_pixel + last_index)+1],2)));
+		last_index = (gpu_image_out.logical_upper_bound_complex_x + 1)*(cpu_image_in.logical_y_dimension-2);
 
+		for (int current_pixel=0; current_pixel < 16; current_pixel++)
+		{
+			wxPrintf("Transformed Vals %d, %3.3e,%3.3e  %3.3e :LAST: %d %3.3e,%3.3e  %3.3e\n",
+					current_pixel, gpu_image_out.real_values[2*current_pixel],gpu_image_out.real_values[2*current_pixel+1],
+					sqrtf(powf(gpu_image_out.real_values[2*current_pixel],2)+powf(gpu_image_out.real_values[2*current_pixel+1],2)),
+					current_pixel + last_index,gpu_image_out.real_values[2*(current_pixel + last_index)],gpu_image_out.real_values[2*(current_pixel + last_index)+1],
+					sqrtf(powf(gpu_image_out.real_values[2*(current_pixel + last_index)],2)+powf(gpu_image_out.real_values[2*(current_pixel + last_index)+1],2)));
+
+		}
 	}
+	else
+	{
+		last_index = (gpu_image_out.logical_upper_bound_complex_x + 1)*(cpu_image_in.logical_y_dimension-2);
+		int actual_pixel;
+		for (int current_pixel=0; current_pixel < 16; current_pixel++)
+		{
+			actual_pixel = current_pixel*(DFT.output_image.dims.w);
+			wxPrintf("Transformed Vals %d, %3.3e,%3.3e  %3.3e :LAST: %d %3.3e,%3.3e  %3.3e\n",
+					current_pixel, gpu_image_out.real_values[actual_pixel],gpu_image_out.real_values[actual_pixel+1],
+					sqrtf(powf(gpu_image_out.real_values[actual_pixel],2)+powf(gpu_image_out.real_values[actual_pixel+1],2)),
+					current_pixel + last_index,gpu_image_out.real_values[2*(current_pixel + last_index)],gpu_image_out.real_values[2*(current_pixel + last_index)+1],
+					sqrtf(powf(gpu_image_out.real_values[2*(current_pixel + last_index)],2)+powf(gpu_image_out.real_values[2*(current_pixel + last_index)+1],2)));
+
+		}
+	}
+
 
 
 	// Complete the second dimension and calc cpu 2d xform to compare
@@ -759,7 +787,7 @@ void GpuUtilTest::DFTbyDecomp()
     GpuImage paddedGpu;
     paddedGpu.CopyFromCpuImage(cpu_image_in);
     paddedGpu.CopyHostToDevice();
-    int nLoops = 20000;
+    int nLoops = 0;
 //	for (int iLoop = 0; iLoop < nLoops; iLoop++)
 //	{
 //		timer.start("padded");
