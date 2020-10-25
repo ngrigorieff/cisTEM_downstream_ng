@@ -586,13 +586,13 @@ void GpuUtilTest::createImageAddOne()
 void GpuUtilTest::DFTbyDecomp()
 {
 
-	bool complex_strided = false;
+	bool complex_strided = true;
 
 	DFTbyDecomposition DFT;
-	int wanted_input_size_x = 16;
+	int wanted_input_size_x = 256;
 	int wanted_input_size_y = wanted_input_size_x;
-	int wanted_output_size_x = 1*wanted_input_size_x;
-	int wanted_output_size_y = 1*wanted_input_size_x;
+	int wanted_output_size_x = 16*wanted_input_size_x;
+	int wanted_output_size_y = 16*wanted_input_size_x;
 	int wanted_number_of_iterations = 1;
 
 	DFT.InitTestCase(wanted_input_size_x,wanted_input_size_y,wanted_output_size_x,wanted_output_size_y);
@@ -681,7 +681,7 @@ void GpuUtilTest::DFTbyDecomp()
 		if (current_pixel < cpu_image_in.logical_x_dimension)
 		{
 			first_dim.real_values[current_pixel] = cpu_image_in.real_values[actual_pixel];
-			last_dim.real_values[current_pixel] = cpu_image_in.real_values[last_index+current_pixel];
+			last_dim.real_values[current_pixel] = 0.0f;//cpu_image_in.real_values[last_index+current_pixel];
 
 		}
 		else
@@ -750,7 +750,7 @@ void GpuUtilTest::DFTbyDecomp()
 	}
 	else
 	{
-		DFT.DFT_C2C_WithPadding();
+		DFT.FFT_C2C_WithPadding();
 	}
 	cpu_image_in.Resize(wanted_output_size_x, wanted_output_size_y, 1, 0.0f);
 	cpu_image_in.ForwardFFT(false);
@@ -787,7 +787,7 @@ void GpuUtilTest::DFTbyDecomp()
     GpuImage paddedGpu;
     paddedGpu.CopyFromCpuImage(cpu_image_in);
     paddedGpu.CopyHostToDevice();
-    int nLoops = 0;
+    int nLoops = 10000;
 //	for (int iLoop = 0; iLoop < nLoops; iLoop++)
 //	{
 //		timer.start("padded");
@@ -807,13 +807,13 @@ void GpuUtilTest::DFTbyDecomp()
 		timer.start("GPU");
 		if (complex_strided)
 		{
-			DFT.DFT_R2C_WithPadding();
-			DFT.DFT_C2C_WithPadding_strided();
+			DFT.FFT_R2C_WithPadding();
+			DFT.FFT_C2C_WithPadding_strided();
 		}
 		else
 		{
 			DFT.FFT_R2C_WithPadding_strided();
-			DFT.DFT_C2C_WithPadding_rdx2();
+			DFT.FFT_C2C_WithPadding();
 		}
 
 		timer.lap("GPU");
