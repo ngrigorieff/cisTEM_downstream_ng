@@ -12,6 +12,7 @@ GpuUtilTest : public MyApp
 	void TemplateMatchingStandalone(int nGPUs, int nThreads);
 	void createImageAddOne();
 	void DFTbyDecomp();
+	void FFTwithRotation();
 
 	private:
 };
@@ -37,7 +38,8 @@ bool GpuUtilTest::DoCalculation()
   int nThreads = 1;
   int nGPUs = 1;
 //  this->TemplateMatchingStandalone(nThreads, nGPUs);
-  this->DFTbyDecomp();
+//  this->DFTbyDecomp();
+  this->FFTwithRotation();
   int gpuID = 0;
   wxPrintf("I made it here\n");
 
@@ -586,13 +588,13 @@ void GpuUtilTest::createImageAddOne()
 void GpuUtilTest::DFTbyDecomp()
 {
 
-	bool complex_strided = true;
+	bool complex_strided = false;
 
 	DFTbyDecomposition DFT;
 	int wanted_input_size_x = 256;
 	int wanted_input_size_y = wanted_input_size_x;
-	int wanted_output_size_x = 16*wanted_input_size_x;
-	int wanted_output_size_y = 16*wanted_input_size_x;
+	int wanted_output_size_x = 1*wanted_input_size_x;
+	int wanted_output_size_y = 1*wanted_input_size_x;
 	int wanted_number_of_iterations = 1;
 
 	DFT.InitTestCase(wanted_input_size_x,wanted_input_size_y,wanted_output_size_x,wanted_output_size_y);
@@ -821,6 +823,78 @@ void GpuUtilTest::DFTbyDecomp()
 
 
 	timer.print_times();
+
+
+}
+
+void GpuUtilTest::FFTwithRotation()
+{
+
+	DFTbyDecomposition DFT;
+	StopWatch timer;
+
+	int nLoops = 1000;
+	float t_rmsd;
+
+	int wanted_input_size_x = 4096;
+	int wanted_input_size_y = wanted_input_size_x;
+	int wanted_output_size_x = 1*wanted_input_size_x;
+	int wanted_output_size_y = 1*wanted_input_size_x;
+	int wanted_number_of_iterations = 1;
+
+
+	DFT.InitTestCase(wanted_input_size_x,wanted_input_size_y,wanted_output_size_x,wanted_output_size_y);
+
+	Image regular_fft, rotated_fft, buffer;
+	GpuImage d_regular_fft, d_rotated_fft;
+	regular_fft.Allocate(wanted_input_size_x,wanted_input_size_y,true);
+	rotated_fft.Allocate(wanted_output_size_x,wanted_output_size_y,true);
+
+	RandomNumberGenerator rg(PIf);
+	for (int current_pixel=0; current_pixel < regular_fft.real_memory_allocated; current_pixel++)
+	{
+		regular_fft.real_values[current_pixel] = rg.GetNormalRandomSTD(0.0,1.0);
+	}
+	rotated_fft.CopyFrom(&regular_fft);
+
+	// Copy of gpu images (on host)
+	d_regular_fft.CopyFromCpuImage(regular_fft);
+	d_regular_fft.CopyHostToDevice();
+	d_rotated_fft.CopyFromCpuImage(rotated_fft);
+	d_rotated_fft.CopyHostToDevice();
+
+	// Get baseline cpu
+	buffer.CopyFrom(&regular_fft);
+
+	buffer.ForwardFFT(false);
+	buffer.BackwardFFT();
+	buffer.MultiplyByConstant(1.0f/buffer.real_memory_allocated);
+
+
+	// Warm up for regular fft
+	d_regular_fft.ForwardFFT(false);
+	d_regular_fft.BackwardFFT();
+	d_regular_fft.MultiplyByConstant(1.0/d_regular_fft.real_memory_allocated);
+	d_regular_fft.CopyDeviceToHost(false, false);
+	d_regular_fft.Wait();
+
+
+	buffer.SubtractImage(&regular_fft);
+	t_rmsd = sqrtf(buffer.ReturnSumOfSquares(0, 0, 0, 0, false));
+	wxPrintf("RMSD between regular gpu fft/ifft pair and cpu fft/ifft pair is %3.3e\n", t_rmsd);
+
+	// Record FFTs timing
+	timer.start("cufft");
+	for (int iLoop = 0; iLoop < nLoops; iLoop++)
+	{
+		d_regular_fft.ForwardFFT(false);
+		d_regular_fft.BackwardFFT();
+	}
+	d_regular_fft.Wait();
+	timer.lap("cufft");
+
+	timer.print_times();
+
 
 
 }

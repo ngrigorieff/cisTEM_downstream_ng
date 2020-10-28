@@ -31,16 +31,20 @@ public:
 	// These will point to the memory in the GpuImages, but won't have memory allocated for them.
 	cufftReal* d_input_image_real;
 	cufftComplex* d_input_image_complex;
+	cufftComplex* d_rotated_buffer;
 	bool is_set_gpu_images;
+	bool is_allocated_rotated_buffer;
 
 	float* twiddles;
 	bool is_set_twiddles;
 	int shared_mem;
 
 
+
 	// To be used in development where a fake image is created.
 	void InitTestCase(int wanted_input_size_x, int wanted_input_size_y, int wanted_output_size_x, int wanted_output_size_y);
 	void SetGpuImages(Image& cpu_input, Image& cpu_output);
+	void AllocateRotatedBuffer();
 	void DFT_R2C_WithPadding();
 	void DFT_C2C_WithPadding();
 	void DFT_R2C_WithPadding_strided();
@@ -50,6 +54,13 @@ public:
 	void FFT_C2C_WithPadding();
 	void FFT_R2C_WithPadding_strided();
 	void FFT_C2C_WithPadding_strided();
+	void FFT_R2C_rotate();
+	void FFT_C2C_rotate(bool forward_transform);
+	void FFT_C2R_rotate();
+
+
+
+
 
 
 

@@ -7,7 +7,13 @@
 
 #include "gpu_core_headers.h"
 #include "/groups/himesb/cufftdx/include/cufftdx.hpp"
+// block_io depends on fp16. Both included from version () on 2020 Oct 30 as IO here may break on future changes
+#include "fp16_common.hpp"
+#include "block_io.hpp"
+
 using namespace cufftdx;
+
+
 
 __global__ void DFT_R2C_WithPaddingKernel(cufftReal* input_values, cufftComplex* output_values, int4 dims_in, int4 dims_out, float C);
 __global__ void DFT_C2C_WithPaddingKernel_strided(cufftComplex* input_values, int4 dims_in, int4 dims_out, float C);
@@ -28,16 +34,32 @@ template<class FFT>
 //__launch_bounds__(FFT::max_threads_per_block) __global__
 __global__ void block_fft_kernel_C2C(typename FFT::input_type* input_values, typename FFT::output_type* output_values, int4 dims_in, int4 dims_out, float twid_constant, int n_sectors);
 
+template<class FFT>
+__global__ void block_fft_kernel_R2C_rotate(float* input_values, typename FFT::output_type* output_values, int4 dims_in, int4 dims_out, typename FFT::workspace_type workspace);
+
+template<class FFT>
+__global__ void block_fft_kernel_C2C_rotate(typename FFT::input_type* input_values, typename FFT::output_type* output_values, int4 dims_in, int4 dims_out, typename FFT::workspace_type workspace);
+
+template<class FFT>
+__global__ void block_fft_kernel_C2R_rotate(typename FFT::input_type* input_values, float* output_values, int4 dims_in, int4 dims_out, typename FFT::workspace_type workspace);
+
 
 using FFT_256          = decltype(Block() + Size<256>() + Type<fft_type::c2c>() +
                      Precision<float>() + ElementsPerThread<2>() + FFTsPerBlock<1>() + SM<700>());
 using FFT_16          = decltype(Block() + Size<16>() + Type<fft_type::c2c>() +
                      Precision<float>() + ElementsPerThread<2>() + FFTsPerBlock<1>() + SM<700>());
+using FFT_4096_r2c   = decltype(Block() + Size<4096>() + Type<fft_type::r2c>() +
+                     Precision<float>() + ElementsPerThread<8>() + FFTsPerBlock<1>() + SM<700>());
+using FFT_4096_c2c   = decltype(Block() + Size<4096>() + Type<fft_type::c2c>() +
+                     Precision<float>() + ElementsPerThread<8>() + FFTsPerBlock<1>() + SM<700>());
+using FFT_4096_c2r   = decltype(Block() + Size<4096>() + Type<fft_type::c2r>() +
+                     Precision<float>() + ElementsPerThread<8>() + FFTsPerBlock<1>() + SM<700>());
 
 DFTbyDecomposition::DFTbyDecomposition() // @suppress("Class members should be properly initialized")
 {
 	is_set_gpu_images = false;
 	is_set_twiddles = false;
+	is_allocated_rotated_buffer = false;
 //	is_set_outputs = false;
 }
 
@@ -46,6 +68,11 @@ DFTbyDecomposition::~DFTbyDecomposition()
 	if (is_set_twiddles)
 	{
 		cudaErr(cudaFree(twiddles));
+	}
+	if (is_allocated_rotated_buffer)
+	{
+		cudaErr(cudaFree(d_rotated_buffer));
+
 	}
 //	if (is_set_outputs)
 //	{
@@ -91,6 +118,15 @@ void DFTbyDecomposition::SetGpuImages(Image& cpu_input, Image& cpu_output)
 
 	is_set_gpu_images = true;
 
+}
+
+void DFTbyDecomposition::AllocateRotatedBuffer()
+{
+	MyAssertTrue(is_set_gpu_images,"Gpu images must be set before allocating a buffer");
+
+	cudaErr(cudaMalloc(&d_rotated_buffer, sizeof(float)*output_image.real_memory_allocated));
+
+	is_allocated_rotated_buffer = true;
 }
 
 
@@ -956,7 +992,6 @@ __global__ void block_fft_kernel_C2C(typename FFT::input_type* input_values, typ
 
 	extern __shared__  complex_type real_data[];
 	complex_type* shared_mem_work = (complex_type*)&real_data[dims_in.x];
-	float* fake_input = reinterpret_cast<float*>(output_values);
 
 	// Memory used by FFT
 	complex_type twiddle;
@@ -964,6 +999,7 @@ __global__ void block_fft_kernel_C2C(typename FFT::input_type* input_values, typ
 
     // To re-map the thread index to the data
     int input_MAP[FFT::storage_size];
+
     // To re-map the decomposed frequency to the full output frequency
     int output_MAP[FFT::storage_size];
     // For a given decomposed fragment
@@ -1036,3 +1072,220 @@ __global__ void block_fft_kernel_C2C(typename FFT::input_type* input_values, typ
 	return;
 
 }
+
+void DFTbyDecomposition::FFT_R2C_rotate()
+{
+
+	// This is the first set of 1d ffts when the input data are real valued, accessing the strided dimension. Since we need the full length, it will actually run a C2C xform
+
+	// FIXME when adding real space complex images
+	MyAssertTrue( input_image.is_in_memory_gpu, "Input image is in not on the GPU!");
+	MyAssertTrue( output_image.is_in_memory_gpu, "Output image is in not on the GPU!");
+
+	// Elements per thread must be [2,32]
+    const int ept = 8;
+
+    // FFts per block. Might be able to re-use twiddles but prob more mem intensive. TODO test me and also evaluate memory size
+    const int ffts_per_block = 1; // 1 is the default.
+
+	int threadsPerBlock = 4096/ept; // FIXME make sure its a multiple of 32
+	int gridDims = max(input_image.dims.y, input_image.dims.x);
+
+if (input_image.dims.y == 4096)
+	{
+	    using FFT = decltype(FFT_4096_r2c() + Direction<fft_direction::forward>() );
+		int shared_mem = sizeof(FFT::value_type)*(input_image.dims.x) + FFT::shared_memory_size*8;
+
+	    cudaError_t error_code = cudaSuccess;
+	    auto workspace = make_workspace<FFT>(error_code);
+		block_fft_kernel_R2C_rotate<FFT><< <gridDims, threadsPerBlock, shared_mem, cudaStreamPerThread>> > ( (float *)input_image.real_values_gpu,  (typename FFT::output_type*)d_rotated_buffer, input_image.dims, output_image.dims, workspace);
+
+	}
+	else
+	{
+		exit(-1);
+	}
+
+
+
+
+}
+
+template<class FFT>
+__global__ void block_fft_kernel_R2C_rotate(float* input_values, typename FFT::output_type* output_values, int4 dims_in, int4 dims_out, typename FFT::workspace_type workspace)
+{
+
+	if (blockIdx.x > dims_in.y) return;
+
+//	// Initialize the shared memory, assuming everyting matches the input data X size in
+    using complex_type = typename FFT::value_type;
+    using scalar_type  = typename complex_type::value_type;
+
+	extern __shared__  complex_type shared_mem[];
+
+    complex_type thread_data[FFT::storage_size];
+    int source_idx[FFT::storage_size];
+
+    bah_io::io<FFT>::load_r2c(&input_values[blockIdx.x * dims_in.w], thread_data, 1, source_idx);
+
+    // For loop zero the twiddles don't need to be computed
+    FFT().execute(thread_data, shared_mem);
+
+
+	// The memory access is strided anyway so just send to global.
+    int rotated_offset[2] = { -dims_out.y, blockIdx.x  + (dims_out.y) * (dims_out.w/2 - 1)};
+    bah_io::io<FFT>::store_r2c_rotated(thread_data, output_values, 1, rotated_offset);
+
+
+	return;
+
+}
+
+void DFTbyDecomposition::FFT_C2C_rotate(bool forward_transform)
+{
+
+	// This is the first set of 1d ffts when the input data are real valued, accessing the strided dimension. Since we need the full length, it will actually run a C2C xform
+
+	// FIXME when adding real space complex images
+	MyAssertTrue( input_image.is_in_memory_gpu, "Input image is in not on the GPU!");
+	MyAssertTrue( output_image.is_in_memory_gpu, "Output image is in not on the GPU!");
+
+	// Elements per thread must be [2,32]
+    const int ept = 8;
+
+
+	int threadsPerBlock = 4096/ept ; // FIXME make sure its a multiple of 32
+	int gridDims = output_image.dims.w/2;
+
+
+	if (input_image.dims.y == 4096)
+	{
+		if (forward_transform)
+		{
+		    using FFT = decltype(FFT_4096_c2c() + Direction<fft_direction::forward>() );
+		    cudaError_t error_code = cudaSuccess;
+		    auto workspace = make_workspace<FFT>(error_code);
+			int shared_mem = sizeof(FFT::value_type)*(output_image.dims.y) + FFT::shared_memory_size*8;
+			block_fft_kernel_C2C_rotate<FFT><< <gridDims, threadsPerBlock, shared_mem, cudaStreamPerThread>> >
+			( (typename FFT::output_type*)d_rotated_buffer,(typename FFT::output_type*)d_rotated_buffer, input_image.dims, output_image.dims, workspace);
+
+
+		}
+		else
+		{
+		    using FFT = decltype(FFT_4096_c2c() + Direction<fft_direction::inverse>() );
+		    cudaError_t error_code = cudaSuccess;
+		    auto workspace = make_workspace<FFT>(error_code);
+			int shared_mem = sizeof(FFT::value_type)*(output_image.dims.y) + FFT::shared_memory_size*8;
+			block_fft_kernel_C2C_rotate<FFT><< <gridDims, threadsPerBlock, shared_mem, cudaStreamPerThread>> >
+			( (typename FFT::output_type*)d_rotated_buffer,(typename FFT::output_type*)d_rotated_buffer, input_image.dims, output_image.dims, workspace);
+
+
+		}
+
+
+
+	}
+	else
+	{
+		exit(-1);
+	}
+
+
+
+
+}
+
+template<class FFT>
+__global__ void block_fft_kernel_C2C_rotate(typename FFT::input_type* input_values, typename FFT::output_type* output_values, int4 dims_in, int4 dims_out, typename FFT::workspace_type workspace)
+{
+
+//	// Initialize the shared memory, assuming everyting matches the input data X size in
+    using complex_type = typename FFT::value_type;
+    using scalar_type  = typename complex_type::value_type;
+
+	extern __shared__  complex_type shared_mem[];
+
+    complex_type thread_data[FFT::storage_size];
+    int rotated_offset = blockIdx.x * dims_out.y;
+
+    bah_io::io<FFT>::load(&input_values[rotated_offset], thread_data, 1);
+
+
+    // For loop zero the twiddles don't need to be computed
+    FFT().execute(thread_data, shared_mem);
+
+    bah_io::io<FFT>::load(thread_data, &output_values[rotated_offset], 1);
+
+
+
+	return;
+
+}
+
+void DFTbyDecomposition::FFT_C2R_rotate()
+{
+
+	// This is the first set of 1d ffts when the input data are real valued, accessing the strided dimension. Since we need the full length, it will actually run a C2C xform
+
+	// FIXME when adding real space complex images
+	MyAssertTrue( input_image.is_in_memory_gpu, "Input image is in not on the GPU!");
+	MyAssertTrue( output_image.is_in_memory_gpu, "Output image is in not on the GPU!");
+
+	// Elements per thread must be [2,32]
+    const int ept = 8;
+
+	int threadsPerBlock = 4096/8; // FIXME make sure its a multiple of 32
+	int gridDims = output_image.dims.w/2;
+
+
+	if (input_image.dims.y == 4096)
+	{
+	    using FFT = decltype(FFT_4096_c2r() + Direction<fft_direction::inverse>() );
+		int shared_mem = sizeof(FFT::value_type)*(input_image.dims.x) + FFT::shared_memory_size*8;
+
+	    cudaError_t error_code = cudaSuccess;
+	    auto workspace = make_workspace<FFT>(error_code);
+		block_fft_kernel_C2R_rotate<FFT><< <gridDims, threadsPerBlock, shared_mem, cudaStreamPerThread>> > ( (typename FFT::output_type*)d_rotated_buffer, (float *)input_image.real_values_gpu, input_image.dims, output_image.dims, workspace);
+
+	}
+	else
+	{
+		exit(-1);
+	}
+
+
+
+
+}
+
+template<class FFT>
+__global__ void block_fft_kernel_C2R_rotate(typename FFT::input_type* input_values, float* output_values, int4 dims_in, int4 dims_out, typename FFT::workspace_type workspace)
+{
+
+//	// Initialize the shared memory, assuming everyting matches the input data X size in
+	//	// Initialize the shared memory, assuming everyting matches the input data X size in
+	using complex_type = typename FFT::value_type;
+	using scalar_type  = typename complex_type::value_type;
+
+	extern __shared__  complex_type shared_mem[];
+
+	complex_type thread_data[FFT::storage_size];
+	int source_idx[FFT::storage_size];
+
+	bah_io::io<FFT>::load(&input_values[blockIdx.x * dims_out.y], thread_data, 1);
+
+
+    // For loop zero the twiddles don't need to be computed
+    FFT().execute(thread_data, shared_mem);
+
+    int rotated_offset[2] = { -dims_out.w,  (dims_out.w/2 - blockIdx.x - 1)};
+
+    bah_io::io<FFT>::store_c2r_rotated(thread_data, output_values, 1, rotated_offset);
+
+
+
+	return;
+
+}
+
