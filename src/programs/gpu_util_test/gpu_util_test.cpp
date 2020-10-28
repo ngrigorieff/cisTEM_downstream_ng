@@ -833,10 +833,10 @@ void GpuUtilTest::FFTwithRotation()
 	DFTbyDecomposition DFT;
 	StopWatch timer;
 
-	int nLoops = 1000;
+	int nLoops = 1;
 	float t_rmsd;
 
-	int wanted_input_size_x = 4096;
+	int wanted_input_size_x = 2048;
 	int wanted_input_size_y = wanted_input_size_x;
 	int wanted_output_size_x = 1*wanted_input_size_x;
 	int wanted_output_size_y = 1*wanted_input_size_x;
@@ -860,8 +860,8 @@ void GpuUtilTest::FFTwithRotation()
 	// Copy of gpu images (on host)
 	d_regular_fft.CopyFromCpuImage(regular_fft);
 	d_regular_fft.CopyHostToDevice();
-	d_rotated_fft.CopyFromCpuImage(rotated_fft);
-	d_rotated_fft.CopyHostToDevice();
+//	d_rotated_fft.CopyFromCpuImage(rotated_fft);
+//	d_rotated_fft.CopyHostToDevice();
 
 	// Get baseline cpu
 	buffer.CopyFrom(&regular_fft);
@@ -882,6 +882,9 @@ void GpuUtilTest::FFTwithRotation()
 	buffer.SubtractImage(&regular_fft);
 	t_rmsd = sqrtf(buffer.ReturnSumOfSquares(0, 0, 0, 0, false));
 	wxPrintf("RMSD between regular gpu fft/ifft pair and cpu fft/ifft pair is %3.3e\n", t_rmsd);
+	// reset for comparison to rotated FFT
+	buffer.AddImage(&regular_fft);
+	MyPrintWithDetails("");
 
 	// Record FFTs timing
 	timer.start("cufft");
@@ -894,7 +897,31 @@ void GpuUtilTest::FFTwithRotation()
 	timer.lap("cufft");
 
 	timer.print_times();
+MyPrintWithDetails("");
+	DFT.SetGpuImages(rotated_fft,rotated_fft);
+	MyPrintWithDetails("");
 
+	DFT.AllocateRotatedBuffer();
+	MyPrintWithDetails("");
+
+	// Warm up
+	DFT.FFT_R2C_rotate();
+	MyPrintWithDetails("");
+	DFT.FFT_C2C_rotate(true);
+	MyPrintWithDetails("");
+	DFT.FFT_C2C_rotate(false);
+	MyPrintWithDetails("");
+	DFT.FFT_C2R_rotate();
+	MyPrintWithDetails("");
+
+	d_rotated_fft.MultiplyByConstant(1.0/d_regular_fft.real_memory_allocated);
+	d_rotated_fft.CopyDeviceToHost(false, false);
+	d_rotated_fft.Wait();
+
+
+	buffer.SubtractImage(&rotated_fft);
+	t_rmsd = sqrtf(buffer.ReturnSumOfSquares(0, 0, 0, 0, false));
+	wxPrintf("RMSD between regular gpu fft/ifft pair and cpu fft/ifft pair is %3.3e\n", t_rmsd);
 
 
 }
