@@ -833,15 +833,14 @@ void GpuUtilTest::FFTwithRotation()
 	DFTbyDecomposition DFT;
 	StopWatch timer;
 
-	int nLoops = 1;
+	int nLoops = 1000;
 	float t_rmsd;
 
-	int wanted_input_size_x = 2048;
-	int wanted_input_size_y = wanted_input_size_x;
+	int wanted_input_size_x = 4096;
+	int wanted_input_size_y = 1;
 	int wanted_output_size_x = 1*wanted_input_size_x;
-	int wanted_output_size_y = 1*wanted_input_size_x;
+	int wanted_output_size_y = 1;
 	int wanted_number_of_iterations = 1;
-
 
 	DFT.InitTestCase(wanted_input_size_x,wanted_input_size_y,wanted_output_size_x,wanted_output_size_y);
 
@@ -906,12 +905,16 @@ MyPrintWithDetails("");
 
 	// Warm up
 	DFT.FFT_R2C_rotate();
+	cudaDeviceSynchronize();
 	MyPrintWithDetails("");
 	DFT.FFT_C2C_rotate(true);
+	cudaDeviceSynchronize();
 	MyPrintWithDetails("");
 	DFT.FFT_C2C_rotate(false);
+	cudaDeviceSynchronize();
 	MyPrintWithDetails("");
 	DFT.FFT_C2R_rotate();
+	cudaDeviceSynchronize();
 	MyPrintWithDetails("");
 
 	d_rotated_fft.MultiplyByConstant(1.0/d_regular_fft.real_memory_allocated);

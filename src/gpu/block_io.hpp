@@ -138,8 +138,7 @@ namespace bah_io {
 
         static inline __device__ void load_r2c(const scalar_type* input,
                                                complex_type*      thread_data,
-                                               unsigned int       local_fft_id,
-											   int*				  source_idx = NULL) {
+                                               unsigned int       local_fft_id) {
             // Calculate global offset of FFT batch
             const unsigned int offset = batch_offset(local_fft_id);
             // Get stride, this shows how elements from batch should be split between threads
@@ -147,7 +146,6 @@ namespace bah_io {
             unsigned int       index  = offset + threadIdx.x;
             for (unsigned int i = 0; i < FFT::elements_per_thread; i++) {
                 reinterpret_cast<scalar_type*>(thread_data)[i] = input[index];
-                if (source_idx != NULL) source_idx[i] = (int)index;
                 index += stride;
             }
         }
