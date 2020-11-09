@@ -844,6 +844,8 @@ void GpuUtilTest::FFTwithRotation()
 
 	DFT.InitTestCase(wanted_input_size_x,wanted_input_size_y,wanted_output_size_x,wanted_output_size_y);
 
+	DFT.test_main();
+	exit(-1);
 	Image regular_fft, rotated_fft, buffer;
 	GpuImage d_regular_fft, d_rotated_fft;
 	regular_fft.Allocate(wanted_input_size_x,wanted_input_size_y,true);

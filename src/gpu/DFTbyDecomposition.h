@@ -58,6 +58,9 @@ public:
 	void FFT_C2C_rotate(bool forward_transform);
 	void FFT_C2R_rotate();
 
+	int test_main();
+
+
 
 
 
