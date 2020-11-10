@@ -845,10 +845,12 @@ void GpuUtilTest::FFTwithRotation()
 	DFT.InitTestCase(wanted_input_size_x,wanted_input_size_y,wanted_output_size_x,wanted_output_size_y);
 
 
-	Image regular_fft, rotated_fft, buffer;
+	Image regular_fft, rotated_fft, rotated_fft_inv, buffer;
 	GpuImage d_regular_fft, d_rotated_fft;
 	regular_fft.Allocate(wanted_input_size_x,wanted_input_size_y,true);
 	rotated_fft.Allocate(wanted_output_size_x,wanted_output_size_y,true);
+	rotated_fft_inv.Allocate(wanted_output_size_x,wanted_output_size_y,true);
+
 
 	RandomNumberGenerator rg(PIf);
 	for (int current_pixel=0; current_pixel < regular_fft.real_memory_allocated; current_pixel++)
@@ -865,10 +867,11 @@ void GpuUtilTest::FFTwithRotation()
 
 	// Get baseline cpu
 	buffer.CopyFrom(&regular_fft);
-
+	buffer.QuickAndDirtyWriteSlice("fft_in.mrc", 1, false, 1.0);
 	buffer.ForwardFFT(false);
 	buffer.BackwardFFT();
 	buffer.MultiplyByConstant(1.0f/buffer.real_memory_allocated);
+	buffer.QuickAndDirtyWriteSlice("fft_out_cpu.mrc", 1, false, 1.0);
 
 
 	// Warm up for regular fft
@@ -877,6 +880,8 @@ void GpuUtilTest::FFTwithRotation()
 	d_regular_fft.MultiplyByConstant(1.0/d_regular_fft.real_memory_allocated);
 	d_regular_fft.CopyDeviceToHost(false, false);
 	d_regular_fft.Wait();
+	regular_fft.QuickAndDirtyWriteSlice("fft_out_cufft.mrc", 1, false, 1.0);
+
 
 
 	buffer.SubtractImage(&regular_fft);
@@ -896,7 +901,7 @@ void GpuUtilTest::FFTwithRotation()
 	d_regular_fft.Wait();
 	timer.lap("cufft");
 
-	DFT.SetGpuImages(rotated_fft,rotated_fft);
+	DFT.SetGpuImages(rotated_fft,rotated_fft_inv);
 
 	DFT.AllocateRotatedBuffer();
 	cudaDeviceSynchronize();
@@ -905,21 +910,32 @@ void GpuUtilTest::FFTwithRotation()
 //	DFT.test_main();
 //	exit(-1);
 
-	// Warm up
+//	// Warm up
 	DFT.FFT_R2C_rotate();
+	cudaDeviceSynchronize();
+
 	DFT.FFT_C2C_rotate(true);
+	cudaDeviceSynchronize();
+
 	DFT.FFT_C2C_rotate(false);
+	cudaDeviceSynchronize();
+
 	DFT.FFT_C2R_rotate();
+	cudaDeviceSynchronize();
 
 //
-//	DFT.output_image.MultiplyByConstant(1.0/DFT.output_image.real_memory_allocated);
-//	DFT.output_image.CopyDeviceToHost(false, false);
-//	DFT.output_image.Wait();
-//
-//
-//	buffer.SubtractImage(&rotated_fft);
-//	t_rmsd = sqrtf(buffer.ReturnSumOfSquares(0, 0, 0, 0, false));
-//	wxPrintf("RMSD between regular gpu fft/ifft pair and cpu fft/ifft pair is %3.3e\n", t_rmsd);
+	DFT.output_image.MultiplyByConstant(1.0/DFT.output_image.real_memory_allocated);
+	DFT.output_image.CopyDeviceToHost(false, false);
+	DFT.output_image.Wait();
+	cudaDeviceSynchronize();
+
+	rotated_fft_inv.QuickAndDirtyWriteSlice("fft_out_rotfft.mrc", 1, false, 1.0);
+
+
+exit(0);
+	buffer.SubtractImage(&rotated_fft_inv);
+	t_rmsd = sqrtf(buffer.ReturnSumOfSquares(0, 0, 0, 0, false));
+	wxPrintf("RMSD between regular gpu fft/ifft pair and cpu fft/ifft pair is %3.3e\n", t_rmsd);
 
 	// Record FFTs timing
 	timer.start("rot_fft");
