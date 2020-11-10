@@ -837,15 +837,14 @@ void GpuUtilTest::FFTwithRotation()
 	float t_rmsd;
 
 	int wanted_input_size_x = 4096;
-	int wanted_input_size_y = 1;
+	int wanted_input_size_y = 2;
 	int wanted_output_size_x = 1*wanted_input_size_x;
-	int wanted_output_size_y = 1;
+	int wanted_output_size_y = 2;
 	int wanted_number_of_iterations = 1;
 
 	DFT.InitTestCase(wanted_input_size_x,wanted_input_size_y,wanted_output_size_x,wanted_output_size_y);
 
-	DFT.test_main();
-	exit(-1);
+
 	Image regular_fft, rotated_fft, buffer;
 	GpuImage d_regular_fft, d_rotated_fft;
 	regular_fft.Allocate(wanted_input_size_x,wanted_input_size_y,true);
@@ -904,6 +903,9 @@ MyPrintWithDetails("");
 
 	DFT.AllocateRotatedBuffer();
 	MyPrintWithDetails("");
+//
+//	DFT.test_main();
+//	exit(-1);
 
 	// Warm up
 	DFT.FFT_R2C_rotate();

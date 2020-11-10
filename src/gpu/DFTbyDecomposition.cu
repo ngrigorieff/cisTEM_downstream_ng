@@ -41,8 +41,13 @@ template<class FFT>
 //__launch_bounds__(FFT::max_threads_per_block) __global__
 __global__ void block_fft_kernel_C2C(typename FFT::input_type* input_values, typename FFT::output_type* output_values, int4 dims_in, int4 dims_out, float twid_constant, int n_sectors);
 
-template<class FFT>
-__global__ void block_fft_kernel_R2C_rotate(float* input_values, typename FFT::output_type* output_values, int4 dims_in, int4 dims_out, typename FFT::workspace_type workspace);
+
+template<class FFT, class ComplexType = typename FFT::value_type, class ScalarType = typename ComplexType::value_type>
+__launch_bounds__(FFT::max_threads_per_block) __global__
+void block_fft_kernel_R2C_rotate(ScalarType* input_values, ComplexType* output_values, int4 dims_in, int4 dims_out, typename FFT::workspace_type workspace);
+
+//template<class FFT>
+//__global__ void block_fft_kernel_R2C_rotate(float* input_values, typename FFT::output_type* output_values, int4 dims_in, int4 dims_out, typename FFT::workspace_type workspace);
 
 template<class FFT>
 __global__ void block_fft_kernel_C2C_rotate(typename FFT::input_type* input_values, typename FFT::output_type* output_values, int4 dims_in, int4 dims_out, typename FFT::workspace_type workspace);
@@ -1101,9 +1106,14 @@ void DFTbyDecomposition::FFT_R2C_rotate()
 	int threadsPerBlock = test_size/ept; // FIXME make sure its a multiple of 32
 //	dim3 gridDims = dim3(1,1,max(input_image.dims.y, input_image.dims.x));
 	dim3 gridDims = dim3(2,1,1);
+//
+//	    using FFT = decltype(FFT_4096_r2c() + Direction<fft_direction::forward>() );
+//		int shared_mem = FFT::shared_memory_size*2;
 
-	    using FFT = decltype(FFT_4096_r2c() + Direction<fft_direction::forward>() );
-		int shared_mem = FFT::shared_memory_size*2;
+	    using FFT          = decltype(Block() + Size<4096>() + Type<fft_type::r2c>() + Direction<fft_direction::forward>() +
+	                         Precision<float>() + ElementsPerThread<8>() + FFTsPerBlock<1>() + SM<700>());
+	    using complex_type = typename FFT::value_type;
+	    using scalar_type    = typename complex_type::value_type;
 
 //		wxPrintf("%d %d %d\n",(int)FFT::block_dim.x,(int)FFT::block_dim.y,(int)FFT::block_dim.z);
 //		exit(-1);
@@ -1111,7 +1121,7 @@ void DFTbyDecomposition::FFT_R2C_rotate()
 	    cudaError_t error_code = cudaSuccess;
 	    auto workspace = make_workspace<FFT>(error_code);
 	    wxPrintf("gridDimsx dimsy %d %d\n",(int)gridDims.x,input_image.dims.y);
-		block_fft_kernel_R2C_rotate<FFT><< <gridDims, FFT::block_dim, shared_mem, cudaStreamPerThread>> > ( (float *)input_image.real_values_gpu,  (typename FFT::output_type*)d_rotated_buffer, input_image.dims, output_image.dims, workspace);
+		block_fft_kernel_R2C_rotate<FFT,complex_type,scalar_type><< <gridDims, FFT::block_dim, FFT::shared_memory_size, cudaStreamPerThread>> > ( (scalar_type *)input_image.real_values_gpu,  (complex_type*)d_rotated_buffer, input_image.dims, output_image.dims, workspace);
 	    CUDA_CHECK_AND_EXIT(cudaPeekAtLastError());
 	    CUDA_CHECK_AND_EXIT(cudaDeviceSynchronize());
 
@@ -1121,16 +1131,16 @@ void DFTbyDecomposition::FFT_R2C_rotate()
 
 }
 
-template<class FFT>
-__launch_bounds__(FFT::max_threads_per_block)
-__global__ void block_fft_kernel_R2C_rotate(float* input_values, typename FFT::output_type* output_values, int4 dims_in, int4 dims_out, typename FFT::workspace_type workspace)
+template<class FFT, class ComplexType, class ScalarType>
+__launch_bounds__(FFT::max_threads_per_block) __global__
+void block_fft_kernel_R2C_rotate(ScalarType* input_values, ComplexType* output_values, int4 dims_in, int4 dims_out, typename FFT::workspace_type workspace)
 {
 
 	if (blockIdx.x > dims_in.y) return;
 
 //	// Initialize the shared memory, assuming everyting matches the input data X size in
-    using complex_type = typename FFT::value_type;
-    using scalar_type  = typename complex_type::value_type;
+    using complex_type = ComplexType;
+    using scalar_type  = ScalarType;
 
 	extern __shared__  complex_type shared_mem[];
 
@@ -1151,9 +1161,18 @@ __global__ void block_fft_kernel_R2C_rotate(float* input_values, typename FFT::o
 //	// The memory access is strided anyway so just send to global.
 //    int rotated_offset[2] = { -dims_out.y, (int)blockIdx.z  + (dims_out.y) * (dims_out.w/2 - 1)};
 //    bah_io::io<FFT>::store_r2c_rotated(thread_data, output_values, 1, rotated_offset);
-    for (int i = 0; i < FFT::elements_per_thread; i++)
+    for (int i = 0; i < FFT::elements_per_thread / 2 ; i++)
     {
     	output_values[blockIdx.x + (dims_out.w/2 - source_idx[i] - 1)*dims_out.y] = thread_data[i];
+    }
+
+    constexpr unsigned int threads_per_fft        = cufftdx::size_of<FFT>::value / FFT::elements_per_thread;
+    constexpr unsigned int output_values_to_store = (cufftdx::size_of<FFT>::value / 2) + 1;
+    // threads_per_fft == 1 means that EPT == SIZE, so we need to store one more element
+    constexpr unsigned int values_left_to_store =
+        threads_per_fft == 1 ? 1 : (output_values_to_store % threads_per_fft);
+    if (threadIdx.x < values_left_to_store) {
+    	output_values[blockIdx.x + (dims_out.w/2 - source_idx[FFT::elements_per_thread / 2] - 1)*dims_out.y] =  thread_data[FFT::elements_per_thread / 2];
     }
 
 	return;
@@ -1332,14 +1351,24 @@ template<class FFT, class ComplexType = typename FFT::value_type, class ScalarTy
 __launch_bounds__(FFT::max_threads_per_block) __global__
     void block_fft_kernel_r2cT(ScalarType* input_data, ComplexType* output_data) {
     using complex_type = ComplexType;
-if (blockIdx.x > 1) return;
+    using scalar_type = ScalarType;
+//if (blockIdx.x > 1) return;
     // Local array for thread
     complex_type thread_data[FFT::storage_size];
+
+
+    int source_idx[FFT::storage_size];
+
+        for (int i = 0; i < FFT::elements_per_thread; i++)
+        {
+        	source_idx[i] = threadIdx.x + i * (size_of<FFT>::value / FFT::elements_per_thread);
+        	reinterpret_cast<scalar_type*>(thread_data)[i] = __ldg((const float*)&input_data[blockIdx.x * 4098 + source_idx[i]]);
+        }
 
     // ID of FFT in CUDA block, in range [0; FFT::ffts_per_block)
     const unsigned int local_fft_id = threadIdx.y;
     // Load data from global memory to registers
-    example::io<FFT>::load_r2c(input_data, thread_data, local_fft_id);
+//    example::io<FFT>::load_r2c(input_data, thread_data, local_fft_id);
 
     // Execute FFT
     extern __shared__ complex_type shared_mem[];
@@ -1354,42 +1383,53 @@ if (blockIdx.x > 1) return;
 // One block is run, it calculates two 128-point R2C float precision FFTs.
 // Data is generated on host, copied to device buffer, and then results are copied back to host.
 // Notice different sizes of input and output buffer, and R2C load and store operations in the kernel.
-template<unsigned int Arch>
-void simple_block_fft_r2c() {
+//template<unsigned int Arch>
+int DFTbyDecomposition::test_main() {
     using namespace cufftdx;
-
+    unsigned int Arch = 700;
     wxPrintf("in simple\n");
     // FFT is defined, its: size, type, direction, precision. Block() operator informs that FFT
     // will be executed on block level. Shared memory is required for co-operation between threads.
     using FFT          = decltype(Block() + Size<4096>() + Type<fft_type::r2c>() + Direction<fft_direction::forward>() +
-                         Precision<float>() + ElementsPerThread<8>() + FFTsPerBlock<1>() + SM<Arch>());
+                         Precision<float>() + ElementsPerThread<8>() + FFTsPerBlock<1>() + SM<700>());
     using complex_type = typename FFT::value_type;
     using real_type    = typename complex_type::value_type;
-MyPrintWithDetails("");
+
     // Allocate managed memory for input/output
     real_type* input_data;
-    auto       input_size       = FFT::ffts_per_block * cufftdx::size_of<FFT>::value;
+
+    auto       input_size       =2* FFT::ffts_per_block * cufftdx::size_of<FFT>::value;
     auto       input_size_bytes = input_size * sizeof(real_type);
-    MyPrintWithDetails("");
-    CUDA_CHECK_AND_EXIT(cudaMallocManaged(&input_data, input_size_bytes));
+
+    float* cpu_input = new float[input_size];
     for (size_t i = 0; i < input_size; i++) {
-        input_data[i] = float(i);
+    	cpu_input[i] = float(i);
     }
+
+    CUDA_CHECK_AND_EXIT(cudaMalloc(&input_data, input_size_bytes));
+    CUDA_CHECK_AND_EXIT(cudaMemcpy( input_data, cpu_input,input_size_bytes,cudaMemcpyHostToDevice));
+//    CUDA_CHECK_AND_EXIT(cudaMallocManaged(&input_data, input_size_bytes));
+//    for (size_t i = 0; i < input_size; i++) {
+//        input_data[i] = float(i);
+//    }
     MyPrintWithDetails("");
     complex_type* output_data;
-    auto          output_size       = FFT::ffts_per_block * (cufftdx::size_of<FFT>::value / 2 + 1);
+    auto          output_size       = FFT::ffts_per_block * 2*(cufftdx::size_of<FFT>::value / 2 + 1);
     auto          output_size_bytes = output_size * sizeof(complex_type);
     CUDA_CHECK_AND_EXIT(cudaMallocManaged(&output_data, output_size_bytes));
     MyPrintWithDetails("");
-    std::cout << "input [1st FFT]:\n";
-    for (size_t i = 0; i < cufftdx::size_of<FFT>::value; i++) {
-        std::cout << input_data[i] << std::endl;
-    }
+//    std::cout << "input [1st FFT]:\n";
+//    for (size_t i = 0; i < cufftdx::size_of<FFT>::value; i++) {
+//        std::cout << input_data[i] << std::endl;
+//    }
     std::cout << "Block dim" << FFT::block_dim.x << FFT::block_dim.y << FFT::block_dim.z << std::endl;
     MyPrintWithDetails("");
-
+wxPrintf("Size of float %d  and size of real_typ%d\n",sizeof(float),sizeof(real_type));
     // Invokes kernel with FFT::block_dim threads in CUDA block
-    block_fft_kernel_r2cT<FFT><<<1, FFT::block_dim, FFT::shared_memory_size>>>(input_data, output_data);
+	real_type* dummy_ptr = reinterpret_cast<real_type*>(input_image.real_values_gpu);
+//    block_fft_kernel_r2cT<FFT><<<2, FFT::block_dim, FFT::shared_memory_size>>>(input_data, output_data);
+    block_fft_kernel_r2cT<FFT><<<2, FFT::block_dim, FFT::shared_memory_size>>>(dummy_ptr, output_data);
+
     CUDA_CHECK_AND_EXIT(cudaPeekAtLastError());
     CUDA_CHECK_AND_EXIT(cudaDeviceSynchronize());
 
@@ -1409,14 +1449,14 @@ MyPrintWithDetails("");
     std::cout << "Success" << std::endl;
 }
 
-template<unsigned int Arch>
-struct simple_block_fft_r2c_functor {
-    void operator()() { return simple_block_fft_r2c<Arch>(); }
-};
-
-int DFTbyDecomposition::test_main()
-{
-	wxPrintf("In main\n");
-    return example::sm_runner<simple_block_fft_r2c_functor>();
-}
+//template<unsigned int Arch>
+//struct simple_block_fft_r2c_functor {
+//    void operator()() { return simple_block_fft_r2c<Arch>(); }
+//};
+//
+//int DFTbyDecomposition::test_main()
+//{
+//	wxPrintf("In main\n");
+//    return example::sm_runner<simple_block_fft_r2c_functor>();
+//}
 
