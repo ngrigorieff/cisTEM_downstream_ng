@@ -896,41 +896,44 @@ void GpuUtilTest::FFTwithRotation()
 	d_regular_fft.Wait();
 	timer.lap("cufft");
 
-	timer.print_times();
-MyPrintWithDetails("");
 	DFT.SetGpuImages(rotated_fft,rotated_fft);
-	MyPrintWithDetails("");
 
 	DFT.AllocateRotatedBuffer();
 	cudaDeviceSynchronize();
 
-	MyPrintWithDetails("");
 //
 //	DFT.test_main();
 //	exit(-1);
 
 	// Warm up
 	DFT.FFT_R2C_rotate();
-	cudaDeviceSynchronize();
-	MyPrintWithDetails("");
 	DFT.FFT_C2C_rotate(true);
-	cudaDeviceSynchronize();
-	MyPrintWithDetails("");
 	DFT.FFT_C2C_rotate(false);
-	cudaDeviceSynchronize();
-	MyPrintWithDetails("");
 	DFT.FFT_C2R_rotate();
-	cudaDeviceSynchronize();
-	MyPrintWithDetails("");
-exit(-1);
-	d_rotated_fft.MultiplyByConstant(1.0/d_regular_fft.real_memory_allocated);
-	d_rotated_fft.CopyDeviceToHost(false, false);
-	d_rotated_fft.Wait();
 
+//
+//	DFT.output_image.MultiplyByConstant(1.0/DFT.output_image.real_memory_allocated);
+//	DFT.output_image.CopyDeviceToHost(false, false);
+//	DFT.output_image.Wait();
+//
+//
+//	buffer.SubtractImage(&rotated_fft);
+//	t_rmsd = sqrtf(buffer.ReturnSumOfSquares(0, 0, 0, 0, false));
+//	wxPrintf("RMSD between regular gpu fft/ifft pair and cpu fft/ifft pair is %3.3e\n", t_rmsd);
 
-	buffer.SubtractImage(&rotated_fft);
-	t_rmsd = sqrtf(buffer.ReturnSumOfSquares(0, 0, 0, 0, false));
-	wxPrintf("RMSD between regular gpu fft/ifft pair and cpu fft/ifft pair is %3.3e\n", t_rmsd);
+	// Record FFTs timing
+	timer.start("rot_fft");
+	for (int iLoop = 0; iLoop < nLoops; iLoop++)
+	{
+		DFT.FFT_R2C_rotate();
+		DFT.FFT_C2C_rotate(true);
+		DFT.FFT_C2C_rotate(false);
+		DFT.FFT_C2R_rotate();
+
+	}
+	DFT.output_image.Wait();
+	timer.lap("rot_fft");
+	timer.print_times();
 
 
 }
