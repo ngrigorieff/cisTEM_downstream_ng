@@ -837,9 +837,9 @@ void GpuUtilTest::FFTwithRotation()
 	float t_rmsd;
 
 	int wanted_input_size_x = 4096;
-	int wanted_input_size_y = 2;
+	int wanted_input_size_y = 4096;
 	int wanted_output_size_x = 1*wanted_input_size_x;
-	int wanted_output_size_y = 2;
+	int wanted_output_size_y = 1*wanted_input_size_x;
 	int wanted_number_of_iterations = 1;
 
 	DFT.InitTestCase(wanted_input_size_x,wanted_input_size_y,wanted_output_size_x,wanted_output_size_y);
@@ -902,6 +902,8 @@ MyPrintWithDetails("");
 	MyPrintWithDetails("");
 
 	DFT.AllocateRotatedBuffer();
+	cudaDeviceSynchronize();
+
 	MyPrintWithDetails("");
 //
 //	DFT.test_main();
@@ -920,7 +922,7 @@ MyPrintWithDetails("");
 	DFT.FFT_C2R_rotate();
 	cudaDeviceSynchronize();
 	MyPrintWithDetails("");
-
+exit(-1);
 	d_rotated_fft.MultiplyByConstant(1.0/d_regular_fft.real_memory_allocated);
 	d_rotated_fft.CopyDeviceToHost(false, false);
 	d_rotated_fft.Wait();
