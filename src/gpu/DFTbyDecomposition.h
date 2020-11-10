@@ -54,9 +54,10 @@ public:
 	void FFT_C2C_WithPadding();
 	void FFT_R2C_WithPadding_strided();
 	void FFT_C2C_WithPadding_strided();
-	void FFT_R2C_rotate();
-	void FFT_C2C_rotate(bool forward_transform);
-	void FFT_C2R_rotate();
+	void FFT_R2C_rotate(bool rotate);
+	void FFT_C2C_rotate(bool rotate, bool forward_transform);
+	void FFT_C2R_rotate(bool rotate);
+
 
 	int test_main();
 

@@ -832,6 +832,7 @@ void GpuUtilTest::FFTwithRotation()
 
 	DFTbyDecomposition DFT;
 	StopWatch timer;
+	bool do_rotation = false;
 
 	int nLoops = 1000;
 	float t_rmsd;
@@ -839,7 +840,7 @@ void GpuUtilTest::FFTwithRotation()
 	int wanted_input_size_x = 4096;
 	int wanted_input_size_y = 4096;
 	int wanted_output_size_x = 1*wanted_input_size_x;
-	int wanted_output_size_y = 1*wanted_input_size_x;
+	int wanted_output_size_y = 1*wanted_input_size_y;
 	int wanted_number_of_iterations = 1;
 
 	DFT.InitTestCase(wanted_input_size_x,wanted_input_size_y,wanted_output_size_x,wanted_output_size_y);
@@ -858,6 +859,25 @@ void GpuUtilTest::FFTwithRotation()
 		regular_fft.real_values[current_pixel] = rg.GetNormalRandomSTD(0.0,1.0);
 	}
 	rotated_fft.CopyFrom(&regular_fft);
+//	rotated_fft_inv.CopyFrom(&regular_fft);
+//
+//	int cp = 0;
+//	for (int iY=0; iY < regular_fft.logical_y_dimension; iY++)
+//	{
+//		for (int iX=0; iX < regular_fft.logical_x_dimension; iX++)
+//		{
+//			regular_fft.real_values[cp] = iY* regular_fft.logical_x_dimension + iX;
+//			cp++;
+//		}
+//		regular_fft.real_values[cp] = 0.0;
+//		cp++;
+//		regular_fft.real_values[cp] = 0.0;
+//		cp++;
+//
+//
+//	}
+//	rotated_fft.CopyFrom(&regular_fft);
+
 
 	// Copy of gpu images (on host)
 	d_regular_fft.CopyFromCpuImage(regular_fft);
@@ -902,7 +922,8 @@ void GpuUtilTest::FFTwithRotation()
 	timer.lap("cufft");
 
 	DFT.SetGpuImages(rotated_fft,rotated_fft_inv);
-
+	DFT.input_image.QuickAndDirtyWriteSlices("input_out.mrc", 1, 1);
+	DFT.output_image.QuickAndDirtyWriteSlices("output_out.mrc", 1, 1);
 	DFT.AllocateRotatedBuffer();
 	cudaDeviceSynchronize();
 
@@ -911,20 +932,23 @@ void GpuUtilTest::FFTwithRotation()
 //	exit(-1);
 
 //	// Warm up
-	DFT.FFT_R2C_rotate();
+	DFT.FFT_R2C_rotate(do_rotation);
 	cudaDeviceSynchronize();
+//
+//	DFT.FFT_C2C_rotate(do_rotation,true);
+//	cudaDeviceSynchronize();
+//
+//	DFT.FFT_C2C_rotate(do_rotation,false);
+//	cudaDeviceSynchronize();
 
-	DFT.FFT_C2C_rotate(true);
-	cudaDeviceSynchronize();
-
-	DFT.FFT_C2C_rotate(false);
-	cudaDeviceSynchronize();
-
-	DFT.FFT_C2R_rotate();
+	DFT.FFT_C2R_rotate(do_rotation);
 	cudaDeviceSynchronize();
 
 //
-	DFT.output_image.MultiplyByConstant(1.0/DFT.output_image.real_memory_allocated);
+//	DFT.output_image.MultiplyByConstant(1.0/DFT.output_image.real_memory_allocated);
+	DFT.output_image.MultiplyByConstant(1.0/DFT.output_image.dims.x);
+
+
 	DFT.output_image.CopyDeviceToHost(false, false);
 	DFT.output_image.Wait();
 	cudaDeviceSynchronize();
@@ -941,10 +965,10 @@ exit(0);
 	timer.start("rot_fft");
 	for (int iLoop = 0; iLoop < nLoops; iLoop++)
 	{
-		DFT.FFT_R2C_rotate();
-		DFT.FFT_C2C_rotate(true);
-		DFT.FFT_C2C_rotate(false);
-		DFT.FFT_C2R_rotate();
+		DFT.FFT_R2C_rotate(do_rotation);
+		DFT.FFT_C2C_rotate(do_rotation,true);
+		DFT.FFT_C2C_rotate(do_rotation,false);
+		DFT.FFT_C2R_rotate(do_rotation);
 
 	}
 	DFT.output_image.Wait();
