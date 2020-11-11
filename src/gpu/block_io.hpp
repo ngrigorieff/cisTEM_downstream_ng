@@ -155,6 +155,28 @@ namespace bah_io {
             }
         }
 
+        static inline __device__ void load_r2c_shared(const scalar_type* input,
+        											  scalar_type* shared_input,
+                                               	   	  complex_type*      thread_data,
+													  float* 	 twiddle_factor_args,
+													  float				 twiddle_in,
+													  int*				 input_map,
+													  int       		 offset) {
+            // Calculate global offset of FFT batch
+//            const unsigned int offset = batch_offset(local_fft_id);
+            // Get stride, this shows how elements from batch should be split between threads
+            const unsigned int stride = stride_size();
+            unsigned int       index  = offset + threadIdx.x;
+            for (unsigned int i = 0; i < FFT::elements_per_thread; i++) {
+            	input_map[i] = index;
+        		twiddle_factor_args[i] = twiddle_in * input_map[i];
+            	shared_input[index] = input[index];
+                reinterpret_cast<scalar_type*>(thread_data)[i] = shared_input[index];
+                index += stride;
+            }
+
+        }
+
         static inline __device__ void store_r2c(const complex_type* thread_data,
                                                 complex_type*       output,
                                                 int        offset) {
@@ -177,14 +199,21 @@ namespace bah_io {
 
         static inline __device__ void store_r2c_rotated(const complex_type* thread_data,
                                                 complex_type*       output,
-												int*	    rotated_offset) {
+												int*	    rotated_offset,
+												bool 		accumulate = false) {
 //            const unsigned int offset = batch_offset_r2c(local_fft_id);
             const unsigned int stride = stride_size();
 //            unsigned int       index  = offset + threadIdx.x;
             unsigned int       index  = threadIdx.x;
 
             for (unsigned int i = 0; i < FFT::elements_per_thread / 2; i++) {
-                output[rotated_offset[1]*(int)index + rotated_offset[0]] = thread_data[i];
+            	if (accumulate)
+				{
+            		// implicit multiplication by i
+            		output[rotated_offset[1]*(int)index + rotated_offset[0]].x -= thread_data[i].y;
+            		output[rotated_offset[1]*(int)index + rotated_offset[0]].y += thread_data[i].x;
+				}
+            	else output[rotated_offset[1]*(int)index + rotated_offset[0]] = thread_data[i];
                 index += stride;
             }
             constexpr unsigned int threads_per_fft        = cufftdx::size_of<FFT>::value / FFT::elements_per_thread;
@@ -192,10 +221,18 @@ namespace bah_io {
             // threads_per_fft == 1 means that EPT == SIZE, so we need to store one more element
             constexpr unsigned int values_left_to_store =
                 threads_per_fft == 1 ? 1 : (output_values_to_store % threads_per_fft);
-            if (threadIdx.x < values_left_to_store) {
-                output[rotated_offset[1]*(int)index + rotated_offset[0]] = thread_data[FFT::elements_per_thread / 2];
+            if (threadIdx.x < values_left_to_store)
+            {
+            	if (accumulate)
+				{
+            		output[rotated_offset[1]*(int)index + rotated_offset[0]].x -= thread_data[FFT::elements_per_thread / 2].y;
+            		output[rotated_offset[1]*(int)index + rotated_offset[0]].y += thread_data[FFT::elements_per_thread / 2].x;
+				}
+            	else output[rotated_offset[1]*(int)index + rotated_offset[0]] = thread_data[FFT::elements_per_thread / 2];
             }
         }
+
+
         // Function assumes that values in thread_data are in RRII layout.
         // If OutputInRRIILayout is false, values are saved into output in RIRI layout; otherwise - in RRII.
         template<bool OutputInRRIILayout = false, class ComplexType = complex_type>

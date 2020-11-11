@@ -596,7 +596,7 @@ void GpuUtilTest::DFTbyDecomp()
 	int wanted_input_size_y = wanted_input_size_x;
 	int wanted_output_size_x = 8*wanted_input_size_x;
 	int wanted_output_size_y = 8*wanted_input_size_x;
-	int wanted_number_of_iterations = 1;
+	int wanted_number_of_iterations = 1000;
 
 	DFT.InitTestCase(wanted_input_size_x,wanted_input_size_y,wanted_output_size_x,wanted_output_size_y);
 
@@ -660,11 +660,14 @@ void GpuUtilTest::DFTbyDecomp()
 	{
 		MyPrintWithDetails("");
 		DFT.FFT_R2C_WithPadding(do_rotate);
+		MyPrintWithDetails("");
+
 	}
 	else
 	{
 		DFT.FFT_R2C_WithPadding_strided();
 	}
+	MyPrintWithDetails("");
 
 	// Check the first dimension
 	Image first_dim, last_dim;
@@ -746,7 +749,7 @@ void GpuUtilTest::DFTbyDecomp()
 	}
 
 
-
+MyPrintWithDetails("");
 	// Complete the second dimension and calc cpu 2d xform to compare
 	if (complex_strided)
 	{
@@ -756,6 +759,9 @@ void GpuUtilTest::DFTbyDecomp()
 	{
 		DFT.FFT_C2C_WithPadding();
 	}
+	MyPrintWithDetails("");
+
+
 	cpu_image_in.Resize(wanted_output_size_x, wanted_output_size_y, 1, 0.0f);
 	cpu_image_in.ForwardFFT(false);
 	cpu_image_in.PhaseShift(-(wanted_output_size_x/2-wanted_input_size_x/2), -(wanted_output_size_y/2-wanted_input_size_y/2), 0);
@@ -791,20 +797,20 @@ void GpuUtilTest::DFTbyDecomp()
     GpuImage paddedGpu;
     paddedGpu.CopyFromCpuImage(cpu_image_in);
     paddedGpu.CopyHostToDevice();
-    int nLoops = 10000;
-//	for (int iLoop = 0; iLoop < nLoops; iLoop++)
-//	{
-//		timer.start("padded");
-//		paddedGpu.ForwardFFT(false);
-//		paddedGpu.Wait();
-//		timer.lap("padded");
-//		if (iLoop == 0)     paddedGpu.QuickAndDirtyWriteSlices("FFT_forward.mrc",1,1);
-//
-//		paddedGpu.BackwardFFT();
-//		paddedGpu.AddConstant(rg.GetNormalRandom());
-//
-//
-//	}
+    int nLoops = 20000;
+	for (int iLoop = 0; iLoop < nLoops; iLoop++)
+	{
+		timer.start("padded");
+		paddedGpu.ForwardFFT(false);
+		paddedGpu.Wait();
+		timer.lap("padded");
+		if (iLoop == 0)     paddedGpu.QuickAndDirtyWriteSlices("FFT_forward.mrc",1,1);
+
+		paddedGpu.BackwardFFT();
+		paddedGpu.AddConstant(rg.GetNormalRandom());
+
+
+	}
 
 	for (int iLoop = 0; iLoop < nLoops; iLoop++)
 	{
@@ -822,6 +828,7 @@ void GpuUtilTest::DFTbyDecomp()
 
 		timer.lap("GPU");
 	}
+	DFT.output_image.Wait();
 
 
 	timer.print_times();
