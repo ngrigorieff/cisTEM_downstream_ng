@@ -834,7 +834,7 @@ void GpuUtilTest::FFTwithRotation()
 	StopWatch timer;
 	bool do_rotation = false;
 
-	int nLoops = 1000;
+	int nLoops = 1e4;
 	float t_rmsd;
 
 	int wanted_input_size_x = 4096;
@@ -930,23 +930,18 @@ void GpuUtilTest::FFTwithRotation()
 //
 //	DFT.test_main();
 //	exit(-1);
-
 //	// Warm up
 	DFT.FFT_R2C_rotate(do_rotation);
 	cudaDeviceSynchronize();
-//
 	DFT.FFT_C2C_rotate(do_rotation,true);
 	cudaDeviceSynchronize();
-
 	DFT.FFT_C2C_rotate(do_rotation,false);
 	cudaDeviceSynchronize();
-
 	DFT.FFT_C2R_rotate(do_rotation);
 	cudaDeviceSynchronize();
-
 //
-//	DFT.output_image.MultiplyByConstant(1.0/DFT.output_image.real_memory_allocated);
-	DFT.output_image.MultiplyByConstant(1.0/DFT.output_image.dims.x);
+	DFT.output_image.MultiplyByConstant(1.0/DFT.output_image.real_memory_allocated);
+//	DFT.output_image.MultiplyByConstant(1.0/DFT.output_image.dims.x);
 
 
 	DFT.output_image.CopyDeviceToHost(false, false);
@@ -954,6 +949,7 @@ void GpuUtilTest::FFTwithRotation()
 	cudaDeviceSynchronize();
 
 	rotated_fft_inv.QuickAndDirtyWriteSlice("fft_out_rotfft.mrc", 1, false, 1.0);
+
 
 
 	buffer.SubtractImage(&rotated_fft_inv);

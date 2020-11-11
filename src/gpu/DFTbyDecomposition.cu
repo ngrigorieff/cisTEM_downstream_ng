@@ -17,15 +17,13 @@
 
 //#include "/groups/himesb/cufftdx/example/common.hpp"
 
-
-
 using namespace cufftdx;
 
 const int test_size = 4096;
 // Elements per thread must be [2,32]
-const int ept = 8;
+const int ept = 16;
 // FFts per block. Might be able to re-use twiddles but prob more mem intensive. TODO test me and also evaluate memory size
-const int ffts_per_block = 1; // 1 is the default.
+const int ffts_per_block = 1; // 1 is the default, higher numbers don't work yet. Might be to do with padding. FIXME
 
 __global__ void DFT_R2C_WithPaddingKernel(cufftReal* input_values, cufftComplex* output_values, int4 dims_in, int4 dims_out, float C);
 __global__ void DFT_C2C_WithPaddingKernel_strided(cufftComplex* input_values, int4 dims_in, int4 dims_out, float C);
@@ -1112,12 +1110,14 @@ void DFTbyDecomposition::FFT_R2C_rotate(bool rotate)
 
 	dim3 threadsPerBlock = dim3(test_size/ept, 1, 1); // FIXME make sure its a multiple of 32
 	// NY R2C Transforms of size NX
-	dim3 gridDims = dim3(1,1,input_image.dims.y);
-//
-	using FFT = decltype( FFT_4096_r2c() + Direction<fft_direction::forward>() );
+	dim3 gridDims = dim3(1,1,(input_image.dims.y + ffts_per_block - 1)/ffts_per_block);
 
+	using FFT = decltype( FFT_4096_r2c() + Direction<fft_direction::forward>() );
+//	wxPrintf("FFT::block_dim %d %d %d\n", FFT::block_dim.x,FFT::block_dim.y,FFT::block_dim.z );
 	using complex_type = typename FFT::value_type;
 	using scalar_type    = typename complex_type::value_type;
+
+//	wxPrintf("In R2C the advised EPT (%d) and ffts per block (%d)\n",FFT::elements_per_thread,FFT::suggested_ffts_per_block);
 
 //    for (int i=0+4094; i < 5+4094; i++)
 //    {
@@ -1129,7 +1129,7 @@ void DFTbyDecomposition::FFT_R2C_rotate(bool rotate)
 //    }
 	cudaError_t error_code = cudaSuccess;
 	auto workspace = make_workspace<FFT>(error_code);
-	block_fft_kernel_R2C_rotate<FFT,complex_type,scalar_type><< <gridDims, threadsPerBlock, FFT::shared_memory_size, cudaStreamPerThread>> >
+	block_fft_kernel_R2C_rotate<FFT,complex_type,scalar_type><< <gridDims,  FFT::block_dim, FFT::shared_memory_size, cudaStreamPerThread>> >
 	( (scalar_type *)input_image.real_values_gpu,  (complex_type*)d_rotated_buffer, input_image.dims, output_image.dims, workspace, rotate);
 
 //	cudaErr(cudaPeekAtLastError());
@@ -1144,7 +1144,7 @@ void block_fft_kernel_R2C_rotate(ScalarType* input_values, ComplexType* output_v
 {
 
 	// FIXME using exact sizes so every thread and every block is included. Need overflow checks
-
+	if (ffts_per_block*blockIdx.z > dims_in.y-ffts_per_block) return;
 //	// Initialize the shared memory, assuming everyting matches the input data X size in
     using complex_type = ComplexType;
     using scalar_type  = ScalarType;
@@ -1156,7 +1156,7 @@ void block_fft_kernel_R2C_rotate(ScalarType* input_values, ComplexType* output_v
     constexpr int stride = size_of<FFT>::value / FFT::elements_per_thread;
     int index = threadIdx.x;
 
-    bah_io::io<FFT>::load_r2c(&input_values[blockIdx.z * dims_in.w], thread_data, 0);
+    bah_io::io<FFT>::load_r2c(&input_values[ffts_per_block*blockIdx.z * dims_in.w], thread_data, dims_in.w*threadIdx.y);
 
 //    for (int i = 0; i < FFT::elements_per_thread; i++)
 //    {
@@ -1197,7 +1197,7 @@ void block_fft_kernel_R2C_rotate(ScalarType* input_values, ComplexType* output_v
     }
     else
     {
-        bah_io::io<FFT>::store_r2c(thread_data, &output_values[blockIdx.z * dims_in.w/2], 0);
+        bah_io::io<FFT>::store_r2c(thread_data, &output_values[ffts_per_block*blockIdx.z * dims_in.w/2], dims_out.w/2*threadIdx.y);
     }
 
 	return;
@@ -1215,7 +1215,7 @@ void DFTbyDecomposition::FFT_C2C_rotate(bool rotate, bool forward_transform)
 
 	dim3 threadsPerBlock = dim3(test_size/ept,1,1);
 	// The rotated image now has size NY x NW/2
-	dim3 gridDims = dim3(1,1,output_image.dims.w/2);
+	dim3 gridDims = dim3(1,1,(output_image.dims.w/2+ffts_per_block-1)/ffts_per_block);
 
 
 
@@ -1227,7 +1227,7 @@ void DFTbyDecomposition::FFT_C2C_rotate(bool rotate, bool forward_transform)
 		    using complex_type = typename FFT::value_type;
 
 		    // On the forward the input is in the buffer, do an out of place transform and put back into the roiginal memory
-			block_fft_kernel_C2C_rotate<FFT, complex_type><< <gridDims,threadsPerBlock, FFT::shared_memory_size, cudaStreamPerThread>> >
+			block_fft_kernel_C2C_rotate<FFT, complex_type><< <gridDims, FFT::block_dim, FFT::shared_memory_size, cudaStreamPerThread>> >
 			( (complex_type*)d_rotated_buffer, (complex_type*)output_image.complex_values_gpu, input_image.dims, output_image.dims, workspace, rotate);
 //		    cudaErr(cudaPeekAtLastError());
 //		    cudaErr(cudaDeviceSynchronize());
@@ -1242,7 +1242,7 @@ void DFTbyDecomposition::FFT_C2C_rotate(bool rotate, bool forward_transform)
 		    using complex_type = typename FFT::value_type;
 
 			// On the inverse, do out of place and put back into the bufffer
-			block_fft_kernel_C2C_rotate<FFT, complex_type><< <gridDims, threadsPerBlock, FFT::shared_memory_size, cudaStreamPerThread>> >
+			block_fft_kernel_C2C_rotate<FFT, complex_type><< <gridDims,  FFT::block_dim, FFT::shared_memory_size, cudaStreamPerThread>> >
 			( (complex_type*)output_image.complex_values_gpu, (complex_type*)d_rotated_buffer, input_image.dims, output_image.dims, workspace, rotate);
 //		    cudaErr(cudaPeekAtLastError());
 //		    cudaErr(cudaDeviceSynchronize());
@@ -1261,7 +1261,7 @@ void block_fft_kernel_C2C_rotate(ComplexType* input_values, ComplexType* output_
 {
 
 	// FIXME using exact sizes so every thread and every block is included. Need overflow checks
-
+	if (ffts_per_block*blockIdx.z > dims_out.w/2-ffts_per_block) return;
 //	// Initialize the shared memory, assuming everyting matches the input data X size in
     using complex_type = ComplexType;
 
@@ -1269,7 +1269,6 @@ void block_fft_kernel_C2C_rotate(ComplexType* input_values, ComplexType* output_
 
     complex_type thread_data[FFT::storage_size];
     int source_idx[FFT::storage_size];
-    unsigned int t = 0;
     constexpr int stride = size_of<FFT>::value / FFT::elements_per_thread;
     int index = threadIdx.x;
 
@@ -1283,7 +1282,7 @@ void block_fft_kernel_C2C_rotate(ComplexType* input_values, ComplexType* output_
     }
     else
     {
-        bah_io::io<FFT>::load(&input_values[blockIdx.z], thread_data, source_idx, dims_out.w/2, t);
+        bah_io::io<FFT>::load(&input_values[ffts_per_block*blockIdx.z], thread_data, source_idx, dims_out.w/2, (int)threadIdx.y);
 
     }
 
@@ -1303,7 +1302,7 @@ void block_fft_kernel_C2C_rotate(ComplexType* input_values, ComplexType* output_
     }
     else
     {
-        bah_io::io<FFT>::store(thread_data, &output_values[blockIdx.z], source_idx, dims_out.w/2, t);
+        bah_io::io<FFT>::store(thread_data, &output_values[ffts_per_block*blockIdx.z], source_idx, dims_out.w/2);
     }
 
 
@@ -1323,7 +1322,7 @@ void DFTbyDecomposition::FFT_C2R_rotate(bool rotate)
 	// Elements per thread must be [2,32]
 
 	dim3 threadsPerBlock = dim3(test_size/ept,1,1); // FIXME make sure its a multiple of 32
-	dim3 gridDims = dim3(1,1,output_image.dims.y);
+	dim3 gridDims = dim3(1,1,(output_image.dims.y+ffts_per_block-1)/ffts_per_block);
 
 
 	using FFT = decltype(FFT_4096_c2r() + Direction<fft_direction::inverse>() );
@@ -1333,7 +1332,7 @@ void DFTbyDecomposition::FFT_C2R_rotate(bool rotate)
 	using scalar_type    = typename complex_type::value_type;
 
 	// On the inverse, do out of place and put back into the bufffer
-	block_fft_kernel_C2R_rotate<FFT, complex_type, scalar_type><< <gridDims, threadsPerBlock, FFT::shared_memory_size, cudaStreamPerThread>> >
+	block_fft_kernel_C2R_rotate<FFT, complex_type, scalar_type><< <gridDims,  FFT::block_dim, FFT::shared_memory_size, cudaStreamPerThread>> >
 	( (complex_type*)d_rotated_buffer, (scalar_type*)output_image.real_values_gpu, input_image.dims, output_image.dims, workspace, rotate);
 //	cudaErr(cudaPeekAtLastError());
 //	cudaErr(cudaDeviceSynchronize());
@@ -1360,7 +1359,7 @@ void block_fft_kernel_C2R_rotate(ComplexType* input_values, ScalarType* output_v
 {
 
 	// FIXME using exact sizes so every thread and every block is included. Need overflow checks
-
+	if (ffts_per_block*blockIdx.z > dims_out.y - ffts_per_block) return;
 //	// Initialize the shared memory, assuming everyting matches the input data X size in
 	//	// Initialize the shared memory, assuming everyting matches the input data X size in
 	using complex_type = ComplexType;
@@ -1400,7 +1399,7 @@ void block_fft_kernel_C2R_rotate(ComplexType* input_values, ScalarType* output_v
 	}
     else
     {
-        bah_io::io<FFT>::load_c2r(&input_values[blockIdx.z * dims_in.w/2], thread_data, 0);
+        bah_io::io<FFT>::load_c2r(&input_values[ffts_per_block*blockIdx.z * dims_in.w/2], thread_data, dims_out.w/2*threadIdx.y);
     }
 //	bah_io::io<FFT>::load(&input_values[blockIdx.z * dims_out.y], thread_data, 1);
 
@@ -1419,7 +1418,7 @@ void block_fft_kernel_C2R_rotate(ComplexType* input_values, ScalarType* output_v
     }
     else
     {
-        bah_io::io<FFT>::store_c2r(thread_data, &output_values[blockIdx.z * dims_in.w], 0);
+        bah_io::io<FFT>::store_c2r(thread_data, &output_values[ffts_per_block*blockIdx.z * dims_in.w],dims_out.w * threadIdx.y);
     }
 
 	return;

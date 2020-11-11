@@ -66,9 +66,9 @@ namespace bah_io {
                                            complex_type*       thread_data,
 										   int*				   source_idx,
 										   int	               input_stride,
-                                           unsigned int        local_fft_id) {
+                                           int        		   offset) {
             // Calculate global offset of FFT batch
-            const unsigned int offset = batch_offset(local_fft_id);
+//            const unsigned int offset = batch_offset(local_fft_id);
             // Get stride, this shows how elements from batch should be split between threads
             const unsigned int stride = stride_size();
             unsigned int       index  = offset + threadIdx.x;
@@ -105,8 +105,7 @@ namespace bah_io {
         static inline __device__ void store(const complex_type* thread_data,
                                             complex_type*       output,
 										    int*				   source_idx,
-										    int	               output_stride,
-                                            unsigned int        local_fft_id) {
+										    int	               output_stride) {
 //            const unsigned int offset = batch_offset(local_fft_id);
             const unsigned int stride = stride_size();
 //            unsigned int       index  = offset + threadIdx.x;
@@ -144,9 +143,9 @@ namespace bah_io {
 
         static inline __device__ void load_r2c(const scalar_type* input,
                                                complex_type*      thread_data,
-                                               unsigned int       local_fft_id) {
+                                               int       		  offset) {
             // Calculate global offset of FFT batch
-            const unsigned int offset = batch_offset(local_fft_id);
+//            const unsigned int offset = batch_offset(local_fft_id);
             // Get stride, this shows how elements from batch should be split between threads
             const unsigned int stride = stride_size();
             unsigned int       index  = offset + threadIdx.x;
@@ -158,8 +157,8 @@ namespace bah_io {
 
         static inline __device__ void store_r2c(const complex_type* thread_data,
                                                 complex_type*       output,
-                                                unsigned int        local_fft_id) {
-            const unsigned int offset = batch_offset_r2c(local_fft_id);
+                                                int        offset) {
+//            const unsigned int offset = batch_offset_r2c(local_fft_id);
             const unsigned int stride = stride_size();
             unsigned int       index  = offset + threadIdx.x;
             for (unsigned int i = 0; i < FFT::elements_per_thread / 2; i++) {
@@ -227,10 +226,10 @@ namespace bah_io {
 
         static inline __device__ void load_c2r(const complex_type* input,
                                                complex_type*       thread_data,
-                                               unsigned int        local_fft_id,
+                                               int        offset,
 											   int*				   source_idx = NULL) {
             // Calculate global offset of FFT batch
-            const unsigned int offset = batch_offset_c2r(local_fft_id);
+//            const unsigned int offset = batch_offset_c2r(local_fft_id);
             // Get stride, this shows how elements from batch should be split between threads
             const unsigned int stride = stride_size();
             unsigned int       index  = offset + threadIdx.x;
@@ -258,9 +257,9 @@ namespace bah_io {
         template<bool InputInRRIILayout = false, class ComplexType = complex_type>
         static inline __device__ void load_c2r(const cufftdx::complex<__half2>* input,
                                                cufftdx::complex<__half2>*       thread_data,
-                                               unsigned int                     local_fft_id) {
+                                               int                     offset) {
             // Calculate global offset of FFT batch
-            const unsigned int offset = batch_offset_c2r(local_fft_id);
+//            const unsigned int offset = batch_offset_c2r(local_fft_id);
             // Get stride, this shows how elements from batch should be split between threads
             const unsigned int stride = stride_size();
             unsigned int       index  = offset + threadIdx.x;
@@ -280,8 +279,8 @@ namespace bah_io {
 
         static inline __device__ void store_c2r(const complex_type* thread_data,
                                                 scalar_type*        output,
-                                                unsigned int        local_fft_id) {
-            const unsigned int offset = batch_offset(local_fft_id);
+                                                int                 offset) {
+//            const unsigned int offset = batch_offset(local_fft_id);
             const unsigned int stride = stride_size();
             unsigned int       index  = offset + threadIdx.x;
             for (unsigned int i = 0; i < FFT::elements_per_thread; i++) {
