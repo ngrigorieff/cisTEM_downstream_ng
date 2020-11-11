@@ -832,7 +832,7 @@ void GpuUtilTest::FFTwithRotation()
 
 	DFTbyDecomposition DFT;
 	StopWatch timer;
-	bool do_rotation = false;
+	bool do_rotation = true;
 
 	int nLoops = 1e4;
 	float t_rmsd;
