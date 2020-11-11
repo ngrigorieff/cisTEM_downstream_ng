@@ -38,8 +38,8 @@ bool GpuUtilTest::DoCalculation()
   int nThreads = 1;
   int nGPUs = 1;
 //  this->TemplateMatchingStandalone(nThreads, nGPUs);
-//  this->DFTbyDecomp();
-  this->FFTwithRotation();
+  this->DFTbyDecomp();
+//  this->FFTwithRotation();
   int gpuID = 0;
   wxPrintf("I made it here\n");
 
@@ -588,13 +588,14 @@ void GpuUtilTest::createImageAddOne()
 void GpuUtilTest::DFTbyDecomp()
 {
 
-	bool complex_strided = false;
+	bool complex_strided = true;
+	bool do_rotate = false;
 
 	DFTbyDecomposition DFT;
-	int wanted_input_size_x = 256;
+	int wanted_input_size_x = 512;
 	int wanted_input_size_y = wanted_input_size_x;
-	int wanted_output_size_x = 1*wanted_input_size_x;
-	int wanted_output_size_y = 1*wanted_input_size_x;
+	int wanted_output_size_x = 8*wanted_input_size_x;
+	int wanted_output_size_y = 8*wanted_input_size_x;
 	int wanted_number_of_iterations = 1;
 
 	DFT.InitTestCase(wanted_input_size_x,wanted_input_size_y,wanted_output_size_x,wanted_output_size_y);
@@ -657,7 +658,8 @@ void GpuUtilTest::DFTbyDecomp()
 	DFT.SetGpuImages(gpu_image_in, gpu_image_out);
 	if (complex_strided)
 	{
-		DFT.FFT_R2C_WithPadding();
+		MyPrintWithDetails("");
+		DFT.FFT_R2C_WithPadding(do_rotate);
 	}
 	else
 	{
@@ -748,7 +750,7 @@ void GpuUtilTest::DFTbyDecomp()
 	// Complete the second dimension and calc cpu 2d xform to compare
 	if (complex_strided)
 	{
-		DFT.FFT_C2C_WithPadding_strided();
+		DFT.FFT_C2C_WithPadding_strided(do_rotate);
 	}
 	else
 	{
@@ -809,8 +811,8 @@ void GpuUtilTest::DFTbyDecomp()
 		timer.start("GPU");
 		if (complex_strided)
 		{
-			DFT.FFT_R2C_WithPadding();
-			DFT.FFT_C2C_WithPadding_strided();
+			DFT.FFT_R2C_WithPadding(do_rotate);
+			DFT.FFT_C2C_WithPadding_strided(do_rotate);
 		}
 		else
 		{

@@ -20,6 +20,8 @@
 using namespace cufftdx;
 
 const int test_size = 4096;
+const int pre_padded_size = 512;
+const int ffts_per_block_padded = 1;//test_size / pre_padded_size;
 // Elements per thread must be [2,32]
 const int ept_r = 8;
 const int ept_c = 8;
@@ -32,14 +34,16 @@ __global__ void DFT_R2C_WithPaddingKernel_strided(cufftReal* input_values, cufft
 __global__ void DFT_C2C_WithPaddingKernel(cufftComplex* input_values, int4 dims_in, int4 dims_out, float C);
 __global__ void DFT_C2C_WithPaddingKernel_rdx2(cufftComplex* input_values, int4 dims_in, int4 dims_out, float C);
 
-template<class FFT>
-__global__ void block_fft_kernel_R2C(typename FFT::input_type* input_values, typename FFT::output_type* output_values, int4 dims_in, int4 dims_out, float twid_constant, int n_sectors);
+template<class FFT, class ComplexType = typename FFT::value_type, class ScalarType = typename ComplexType::value_type>
+__launch_bounds__(FFT::max_threads_per_block) __global__
+void block_fft_kernel_R2C_WithPadding(ScalarType* input_values, ComplexType* output_values, int4 dims_in, int4 dims_out, bool rotate, float twiddle_in, int Q);
 
 template<class FFT>
 __global__ void block_fft_kernel_R2C_strided(typename FFT::input_type* input_values, typename FFT::output_type* output_values, int4 dims_in, int4 dims_out, float twid_constant, int n_sectors);
 
-template<class FFT>
-__global__ void block_fft_kernel_C2C_strided(typename FFT::input_type* input_values, typename FFT::output_type* output_values, int4 dims_in, int4 dims_out, float twid_constant, int n_sectors);
+template<class FFT, class ComplexType = typename FFT::value_type>
+__launch_bounds__(FFT::max_threads_per_block) __global__
+void block_fft_kernel_C2C_WithPadding_strided(ComplexType* input_values, ComplexType* output_values, int4 dims_in, int4 dims_out, bool rotate, float twiddle_in, int Q);
 
 template<class FFT>
 //__launch_bounds__(FFT::max_threads_per_block) __global__
@@ -71,6 +75,13 @@ using FFT_4096_c2c   = decltype(Block() + Size<test_size>() + Type<fft_type::c2c
                      Precision<float>() + ElementsPerThread<ept_c>() + FFTsPerBlock<ffts_per_block>() + SM<700>());
 using FFT_4096_c2r   = decltype(Block() + Size<test_size>() + Type<fft_type::c2r>() +
                      Precision<float>() + ElementsPerThread<ept_r>() + FFTsPerBlock<ffts_per_block>() + SM<700>());
+
+using FFT_512_r2c   = decltype(Block() + Size<pre_padded_size>() + Type<fft_type::r2c>() +
+                     Precision<float>() + ElementsPerThread<ept_r>() + FFTsPerBlock<ffts_per_block_padded>() + SM<700>());
+using FFT_512_c2c   = decltype(Block() + Size<pre_padded_size>() + Type<fft_type::c2c>() +
+                     Precision<float>() + ElementsPerThread<ept_c>() + FFTsPerBlock<ffts_per_block_padded>() + SM<700>());
+using FFT_512_c2r   = decltype(Block() + Size<pre_padded_size>() + Type<fft_type::c2r>() +
+                     Precision<float>() + ElementsPerThread<ept_r>() + FFTsPerBlock<ffts_per_block_padded>() + SM<700>());
 
 DFTbyDecomposition::DFTbyDecomposition() // @suppress("Class members should be properly initialized")
 {
@@ -666,7 +677,7 @@ __global__ void block_fft_kernel_R2C_strided(typename FFT::input_type* input_val
 
 }
 
-void DFTbyDecomposition::FFT_R2C_WithPadding()
+void DFTbyDecomposition::FFT_R2C_WithPadding(bool rotate)
 {
 
 	// This is the first set of 1d ffts when the input data are real valued, accessing the strided dimension. Since we need the full length, it will actually run a C2C xform
@@ -675,61 +686,55 @@ void DFTbyDecomposition::FFT_R2C_WithPadding()
 	MyAssertTrue( input_image.is_in_memory_gpu, "Input image is in not on the GPU!");
 	MyAssertTrue( output_image.is_in_memory_gpu, "Output image is in not on the GPU!");
 
-	// Elements per thread must be [2,32]
-    const int ept = 2;
 
-    // FFts per block. Might be able to re-use twiddles but prob more mem intensive. TODO test me and also evaluate memory size
-    const int ffts_per_block = 1; // 1 is the default.
 
     // For now consider the simplest launch params, where one input element is handled per thread.
-    MyAssertFalse(input_image.dims.x % ept, "The elements per thread is not a divisor of the input y-dimension.");
-	int threadsPerBlock = input_image.dims.x / ept; // FIXME make sure its a multiple of 32
-	int gridDims = input_image.dims.y;
+    MyAssertFalse(input_image.dims.x % ept_r, "The elements per thread is not a divisor of the input y-dimension.");
 
 	// For the twiddle factors ahead of the P size ffts
-	float CN = -2*PIf/output_image.dims.x;
-	int   IQ = output_image.dims.x / input_image.dims.x; // FIXME assuming for now this is already divisible
+	float twiddle_in = -2*PIf/output_image.dims.x;
+	int   Q = output_image.dims.x / input_image.dims.x; // FIXME assuming for now this is already divisible
     // FFT is defined, its: size, type, direction, precision. Block() operator informs that FFT
     // will be executed on block level. Shared memory is required for co-operation between threads.
 
 
-	if (input_image.dims.y == 256)
-	{
-	    using FFT = decltype(FFT_256() + Direction<fft_direction::forward>() );
-		int shared_mem = sizeof(FFT::output_type)*(input_image.dims.x) + FFT::shared_memory_size*8;
-		block_fft_kernel_R2C<FFT><< <gridDims, threadsPerBlock, shared_mem, cudaStreamPerThread>> > ( (typename FFT::input_type*)input_image.real_values_gpu,  (typename FFT::output_type*)output_image.complex_values_gpu, input_image.dims, output_image.dims, CN,IQ);
+	dim3 threadsPerBlock = dim3(pre_padded_size/ept_r, 1, 1); // FIXME make sure its a multiple of 32
+	dim3 gridDims = dim3(1,1, input_image.dims.y);
 
+	using FFT = decltype( FFT_512_r2c() + Direction<fft_direction::forward>() );
+//	wxPrintf("FFT::block_dim %d %d %d\n", FFT::block_dim.x,FFT::block_dim.y,FFT::block_dim.z );
+	using complex_type = typename FFT::value_type;
+	using scalar_type    = typename complex_type::value_type;
 
+	// We need to make sure there is also enough memory for the input fft
+//	int shared_mem = output_image.dims.w/2*sizeof(complex_type) + input_image.dims.w*sizeof(scalar_type) + FFT::shared_memory_size;
+	int shared_mem = output_image.dims.w/2*sizeof(complex_type) + input_image.dims.w*sizeof(scalar_type) + FFT::shared_memory_size;
 
-	}
-	else if (input_image.dims.y == 16)
-	{
-	    using FFT = decltype(FFT_16() + Direction<fft_direction::forward>() );
-		int shared_mem = sizeof(FFT::value_type)*(input_image.dims.x) + FFT::shared_memory_size*8;
-		block_fft_kernel_R2C<FFT><< <gridDims, threadsPerBlock, shared_mem, cudaStreamPerThread>> > ( (typename FFT::input_type*)input_image.real_values_gpu,  (typename FFT::output_type*)output_image.complex_values_gpu, input_image.dims, output_image.dims, CN,IQ);
+	wxPrintf("Shared mem %d max threads per block %d and just fft %d\n",shared_mem,FFT::max_threads_per_block,FFT::shared_memory_size);
 
-	}
-	else
-	{
-		exit(-1);
-	}
+	block_fft_kernel_R2C_WithPadding<FFT,complex_type,scalar_type><< <gridDims,  threadsPerBlock, shared_mem, cudaStreamPerThread>> >
+	( (scalar_type *)input_image.real_values_gpu,  (complex_type*)d_rotated_buffer, input_image.dims, output_image.dims, rotate,twiddle_in,Q);
 
+	cudaErr(cudaPeekAtLastError());
 
 
 
 }
 
-template<class FFT>
-//__launch_bounds__(FFT::max_threads_per_block) __global__
-__global__ void block_fft_kernel_R2C(typename FFT::input_type* input_values, typename FFT::output_type* output_values, int4 dims_in, int4 dims_out, float twid_constant, int n_sectors)
+template<class FFT, class ComplexType, class ScalarType>
+__launch_bounds__(FFT::max_threads_per_block) __global__
+void block_fft_kernel_R2C_WithPadding(ScalarType* input_values, ComplexType* output_values, int4 dims_in, int4 dims_out, bool rotate, float twiddle_in, int Q)
 {
 
-//	// Initialize the shared memory, assuming everying matches the input data X size in
-    using complex_type = typename FFT::value_type;
+//	// Initialize the shared memory, assuming everyting matches the input data X size in
+    using complex_type = ComplexType;
+    using scalar_type  = ScalarType;
 
-	extern __shared__  complex_type shared_mem_work[];
-	complex_type* real_data = (complex_type*)&shared_mem_work[FFT::shared_memory_size];
-	float* fake_input = reinterpret_cast<float*>(input_values);
+	extern __shared__  scalar_type shared_input[];
+	complex_type* shared_output = (complex_type*)&shared_input[dims_in.x];
+	complex_type* shared_mem    = (complex_type*)&shared_output[dims_out.w/2];
+
+
 
 	// Memory used by FFT
 	complex_type twiddle;
@@ -742,66 +747,65 @@ __global__ void block_fft_kernel_R2C(typename FFT::input_type* input_values, typ
     // For a given decomposed fragment
     float twiddle_factors_args[FFT::storage_size];
 
-    // This way reads are
     int i;
-
-    for (i = 0; i < FFT::elements_per_thread; i++)
-    {
-    	// index into the input data
-    	input_MAP[i] = threadIdx.x + i * (size_of<FFT>::value / FFT::elements_per_thread);
-		output_MAP[i] = n_sectors * input_MAP[i];
-		twiddle_factors_args[i] = twid_constant * input_MAP[i];
-
+	for (i=0; i < FFT::elements_per_thread; i++)
+	{
+		// index into the input data
+		input_MAP[i] = threadIdx.x + i * (size_of<FFT>::value / FFT::elements_per_thread);
+		output_MAP[i] = Q * input_MAP[i];
+		twiddle_factors_args[i] = twiddle_in * input_MAP[i];
+		// We only need to read in once from global
 		// Unpack the floats and move from shared mem into the register space.in R2C this would happen anyway as a preprocessing step.
-		real_data[input_MAP[i]].x = __ldg((const cufftReal *)&fake_input[blockIdx.x * dims_in.w + input_MAP[i]]);
-		real_data[input_MAP[i]].y = 0.0f;
-    }
+		shared_input[input_MAP[i]] = __ldg((const scalar_type *)&input_values[blockIdx.z * dims_in.w + input_MAP[i]]);
+		// Queue up for first round
+		thread_data[i] = shared_input[input_MAP[i]];
+
+	}
 	__syncthreads();
 
 
-	// this data will be re-used for each n_sectors FFTs
-    for (i = 0; i < FFT::elements_per_thread; i++)
-    {
-		thread_data[i] = real_data[input_MAP[i]];
-    }
+//    bah_io::io<FFT>::load_r2c(shared_input, thread_data, 0);
 
 
-    // For loop zero the twiddles don't need to be computed
-    FFT().execute(thread_data, shared_mem_work);
+	FFT().execute(thread_data, shared_mem);
 
-
-
-	// The memory access is strided anyway so just send to global
-	for (i = 0; i < FFT::elements_per_thread; i++)
+	for (int i = 0; i < FFT::elements_per_thread; i++)
 	{
-		if (output_MAP[i] < dims_out.w/2) // FIXME we should just do a R2C normal here
-		{
-			output_values[blockIdx.x  * (dims_out.w/2) + output_MAP[i]] = thread_data[i];
-		}
+		shared_output[output_MAP[i]] = thread_data[i];
 	}
 
 
     // For the other fragments we need the initial twiddle
-	for (int fft_fragment = 1; fft_fragment < n_sectors; fft_fragment++)
+	for (int sub_fft = 1; sub_fft < Q; sub_fft++)
 	{
-	    for (i = 0; i < FFT::elements_per_thread; i++)
-	    {
-			// Pre shift with twiddle
-			__sincosf(twiddle_factors_args[i]*fft_fragment,&twiddle.y,&twiddle.x);
-			twiddle *= real_data[input_MAP[i]]; // Only the inplace operators are included in cufftdx::types TODO expand
-		    thread_data[i] = twiddle;
-	    }
 
-	      FFT().execute(thread_data, shared_mem_work);
-
-		for (i = 0; i < FFT::elements_per_thread; i++)
+		for (int i = 0; i < FFT::elements_per_thread; i++)
 		{
-		    if ((fft_fragment + output_MAP[i]) < dims_out.w/2) // FIXME we should just do a R2C normal here
-		    {
-		      output_values[blockIdx.x  * (dims_out.w/2) + (fft_fragment + output_MAP[i])] = thread_data[i];
-		    }
+			// Pre shift with twiddle
+			__sincosf(twiddle_factors_args[i]*sub_fft,&twiddle.y,&twiddle.x);
+			twiddle *= shared_input[input_MAP[i]]; // Only the inplace operators are included in cufftdx::types TODO expand
+			thread_data[i] = twiddle;
 		}
 
+
+		FFT().execute(thread_data, shared_mem);
+
+		for (int i = 0; i < FFT::elements_per_thread; i++)
+		{
+			shared_output[output_MAP[i] + sub_fft] = thread_data[i];
+		}
+	}
+	__syncthreads();
+
+	// Now that the memory output can be coalesced send to global
+	int this_idx;
+	for (int sub_fft = 0; sub_fft < Q; sub_fft++)
+	{
+		for (int i = 0; i < FFT::elements_per_thread; i++)
+		{
+			this_idx = input_MAP[i] + blockDim.x*sub_fft;
+			output_values[blockIdx.z * dims_out.w/2 + this_idx] = shared_output[this_idx];
+		}
 	}
 
 
@@ -810,7 +814,7 @@ __global__ void block_fft_kernel_R2C(typename FFT::input_type* input_values, typ
 
 }
 
-void DFTbyDecomposition::FFT_C2C_WithPadding_strided()
+void DFTbyDecomposition::FFT_C2C_WithPadding_strided(bool rotate)
 {
 
 	// This is the first set of 1d ffts when the input data are real valued, accessing the strided dimension. Since we need the full length, it will actually run a C2C xform
@@ -819,142 +823,116 @@ void DFTbyDecomposition::FFT_C2C_WithPadding_strided()
 	MyAssertTrue( input_image.is_in_memory_gpu, "Input image is in not on the GPU!");
 	MyAssertTrue( output_image.is_in_memory_gpu, "Output image is in not on the GPU!");
 
-	// Elements per thread must be [2,32]
-    const int ept = 2;
 
-    // FFts per block. Might be able to re-use twiddles but prob more mem intensive. TODO test me and also evaluate memory size
-    const int ffts_per_block = 1; // 1 is the default.
 
     // For now consider the simplest launch params, where one input element is handled per thread.
-    MyAssertFalse(input_image.dims.y % ept, "The elements per thread is not a divisor of the input y-dimension.");
-	int threadsPerBlock = input_image.dims.y / ept; // FIXME make sure its a multiple of 32
-	int gridDims = output_image.dims.w/2;
+    MyAssertFalse(input_image.dims.y % ept_c, "The elements per thread is not a divisor of the input y-dimension.");
+	dim3 threadsPerBlock = dim3(input_image.dims.y / ept_c,1,1); // FIXME make sure its a multiple of 32
+	dim3 gridDims = dim3(1,1,output_image.dims.w/2);
 
 	// For the twiddle factors ahead of the P size ffts
-	float CN = -2*PIf/output_image.dims.y;
-	int   IQ = output_image.dims.y / input_image.dims.y; // FIXME assuming for now this is already divisible
+	float twiddle_in = -2*PIf/output_image.dims.y;
+	int   Q = output_image.dims.y / input_image.dims.y; // FIXME assuming for now this is already divisible
 
     // FFT is defined, its: size, type, direction, precision. Block() operator informs that FFT
     // will be executed on block level. Shared memory is required for co-operation between threads.
 
 
-	if (input_image.dims.y == 256)
-	{
-	    using FFT = decltype(FFT_256() + Direction<fft_direction::forward>() );
-		int shared_mem = sizeof(FFT::value_type)*(input_image.dims.y) + FFT::shared_memory_size*8;
-		block_fft_kernel_C2C_strided<FFT><< <gridDims, threadsPerBlock, shared_mem, cudaStreamPerThread>> > ( (typename FFT::input_type*)output_image.complex_values_gpu,  (typename FFT::output_type*)output_image.complex_values_gpu, input_image.dims, output_image.dims, CN,IQ);
+	using FFT = decltype( FFT_512_c2c() + Direction<fft_direction::forward>() );
+//	wxPrintf("FFT::block_dim %d %d %d\n", FFT::block_dim.x,FFT::block_dim.y,FFT::block_dim.z );
+	using complex_type = typename FFT::value_type;
 
+	// We need to make sure there is also enough memory for the input fft
+//	int shared_mem = output_image.dims.w/2*sizeof(complex_type) + input_image.dims.w*sizeof(scalar_type) + FFT::shared_memory_size;
+	int shared_mem = sizeof(complex_type)*input_image.dims.y + FFT::shared_memory_size;
 
-	}
-	else if (input_image.dims.y == 16)
-	{
-	    using FFT = decltype(FFT_16() + Direction<fft_direction::forward>() );
-		int shared_mem = sizeof(float)*(input_image.dims.y) + FFT::shared_memory_size*8;
-		block_fft_kernel_C2C_strided<FFT><< <gridDims, threadsPerBlock, shared_mem, cudaStreamPerThread>> > ( (typename FFT::input_type*)output_image.complex_values_gpu,  (typename FFT::output_type*)output_image.complex_values_gpu, input_image.dims, output_image.dims, CN,IQ);
-		output_image.printVal("out 1",0);
-		output_image.printVal("out 1",1);
+	wxPrintf("Shared mem %d max threads per block %d and just fft %d\n",shared_mem,FFT::max_threads_per_block,FFT::shared_memory_size);
 
-		output_image.printVal("out 1",2);
-		output_image.printVal("out 1",3);
-		output_image.printVal("out 1",4);
-		output_image.printVal("out 1",5);
+	block_fft_kernel_C2C_WithPadding_strided<FFT,complex_type><< <gridDims,  threadsPerBlock, shared_mem, cudaStreamPerThread>> >
+	( (complex_type*)d_rotated_buffer,  (complex_type*)output_image.complex_values_gpu, input_image.dims, output_image.dims, rotate,twiddle_in,Q);
 
-
-
-	}
-	else
-	{
-		exit(-1);
-	}
-
-
+	cudaErr(cudaPeekAtLastError());
 
 
 }
 
-template<class FFT>
-//__launch_bounds__(FFT::max_threads_per_block) __global__
-__global__ void block_fft_kernel_C2C_strided(typename FFT::input_type* input_values, typename FFT::output_type* output_values, int4 dims_in, int4 dims_out, float twid_constant, int n_sectors)
+template<class FFT, class ComplexType>
+__launch_bounds__(FFT::max_threads_per_block) __global__
+void block_fft_kernel_C2C_WithPadding_strided(ComplexType* input_values, ComplexType* output_values, int4 dims_in, int4 dims_out, bool rotate, float twiddle_in, int Q)
 {
 
-//	// Initialize the shared memory, assuming everying matches the input data X size in
-    using complex_type = typename FFT::value_type;
+//	// Initialize the shared memory, assuming everyting matches the input data X size in
+    using complex_type = ComplexType;
 
-	extern __shared__  complex_type real_data[];
-	complex_type* shared_mem_work_3= (complex_type*)&real_data[dims_in.y];
-
+	extern __shared__  complex_type shared_input_complex[];
+	complex_type* shared_mem    = (complex_type*)&shared_input_complex[dims_in.y];
 
 	// Memory used by FFT
 	complex_type twiddle;
-    complex_type thread_data[FFT::elements_per_thread];
+    complex_type thread_data[FFT::storage_size];
 
     // To re-map the thread index to the data
-    int input_MAP[FFT::elements_per_thread];
+    int input_MAP[FFT::storage_size];
     // To re-map the decomposed frequency to the full output frequency
-    int output_MAP[FFT::elements_per_thread];
+    int output_MAP[FFT::storage_size];
     // For a given decomposed fragment
-    float twiddle_factors_args[FFT::elements_per_thread];
+    float twiddle_factors_args[FFT::storage_size];
 
-    // This way reads are
     int i;
-
-    for (i = 0; i < FFT::elements_per_thread; i++)
-    {
-    	// index into the input data
-    	input_MAP[i] = threadIdx.x + i * (size_of<FFT>::value / FFT::elements_per_thread);
-		output_MAP[i] = n_sectors * input_MAP[i];
-		twiddle_factors_args[i] = twid_constant * input_MAP[i];
-
+	for (i=0; i < FFT::elements_per_thread; i++)
+	{
+		// index into the input data
+		input_MAP[i] = threadIdx.x + i * (size_of<FFT>::value / FFT::elements_per_thread);
+		output_MAP[i] = Q * input_MAP[i];
+		twiddle_factors_args[i] = twiddle_in * input_MAP[i];
+		// We only need to read in once from global
 		// Unpack the floats and move from shared mem into the register space.in R2C this would happen anyway as a preprocessing step.
-		real_data[input_MAP[i]].x = __ldg((const float*)&input_values[blockIdx.x + input_MAP[i] * (dims_out.w/2)].x);
-		real_data[input_MAP[i]].y = __ldg((const float*)&input_values[blockIdx.x + input_MAP[i] * (dims_out.w/2)].y);
+		shared_input_complex[input_MAP[i]] = __ldg((const double *)&input_values[blockIdx.z + dims_out.w/2 * input_MAP[i]]);
+		// Queue up for first round
+		thread_data[i] = shared_input_complex[input_MAP[i]];
 
-    }
+
+	}
 	__syncthreads();
 
 
-	// this data will be re-used for each n_sectors FFTs
-    for (i = 0; i < FFT::elements_per_thread; i++)
-    {
-		thread_data[i] = real_data[input_MAP[i]];
-    }
+	FFT().execute(thread_data, shared_mem);
 
+	for (int i = 0; i < FFT::elements_per_thread; i++)
+	{
+		output_values[blockIdx.z + dims_out.w/2 * output_MAP[i]] = thread_data[i];
+	}
 
-    // For loop zero the twiddles don't need to be computed
-    FFT().execute(thread_data, shared_mem_work_3);
-
-    // The memory access is strided anyway so just send to global
-    for (i = 0; i < FFT::elements_per_thread; i++)
-    {
-        output_values[blockIdx.x + output_MAP[i] * (dims_out.w/2)] = thread_data[i];
-    }
 
     // For the other fragments we need the initial twiddle
-	for (int fft_fragment = 1; fft_fragment < n_sectors; fft_fragment++)
+	for (int sub_fft = 1; sub_fft < Q; sub_fft++)
 	{
-	    for (i = 0; i < FFT::elements_per_thread; i++)
-	    {
-			// Pre shift with twiddle
-			__sincosf(twiddle_factors_args[i]*fft_fragment,&twiddle.y,&twiddle.x);
-			twiddle *= real_data[input_MAP[i]]; // Only the inplace operators are included in cufftdx::types TODO expand
-		    thread_data[i] = twiddle;
-	    }
 
-	      FFT().execute(thread_data, shared_mem_work_3);
-
-		for (i = 0; i < FFT::elements_per_thread; i++)
+		for (int i = 0; i < FFT::elements_per_thread; i++)
 		{
-		      output_values[blockIdx.x + (fft_fragment + output_MAP[i]) * (dims_out.w/2)] = thread_data[i];
+			// Pre shift with twiddle
+			__sincosf(twiddle_factors_args[i]*sub_fft,&twiddle.y,&twiddle.x);
+			twiddle *= shared_input_complex[input_MAP[i]]; // Only the inplace operators are included in cufftdx::types TODO expand
+			thread_data[i] = twiddle;
+		}
+
+
+		FFT().execute(thread_data, shared_mem);
+
+		for (int i = 0; i < FFT::elements_per_thread; i++)
+		{
+			output_values[blockIdx.z + dims_out.w/2 * (sub_fft + output_MAP[i])] = thread_data[i];
 		}
 
 	}
 
 
 
+
+
 	return;
 
 }
-
 void DFTbyDecomposition::FFT_C2C_WithPadding()
 {
 
@@ -990,17 +968,6 @@ void DFTbyDecomposition::FFT_C2C_WithPadding()
 
 
 
-	}
-	else if (input_image.dims.y == 16)
-	{
-	    using FFT = decltype(FFT_16() + Direction<fft_direction::forward>() );
-		int shared_mem = sizeof(FFT::value_type)*(input_image.dims.x) + FFT::shared_memory_size*8;
-		block_fft_kernel_R2C<FFT><< <gridDims, threadsPerBlock, shared_mem, cudaStreamPerThread>> > ( (typename FFT::input_type*)input_image.real_values_gpu,  (typename FFT::output_type*)output_image.complex_values_gpu, input_image.dims, output_image.dims, CN,IQ);
-
-	}
-	else
-	{
-		exit(-1);
 	}
 
 

@@ -50,10 +50,10 @@ public:
 	void DFT_R2C_WithPadding_strided();
 	void DFT_C2C_WithPadding_strided();
 	void DFT_C2C_WithPadding_rdx2();
-	void FFT_R2C_WithPadding();
+	void FFT_R2C_WithPadding(bool rotate);
 	void FFT_C2C_WithPadding();
 	void FFT_R2C_WithPadding_strided();
-	void FFT_C2C_WithPadding_strided();
+	void FFT_C2C_WithPadding_strided(bool do_rotate);
 	void FFT_R2C_rotate(bool rotate);
 	void FFT_C2C_rotate(bool rotate, bool forward_transform);
 	void FFT_C2R_rotate(bool rotate);
