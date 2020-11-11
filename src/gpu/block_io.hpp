@@ -60,10 +60,12 @@ namespace bah_io {
         // input - global input with all FFTs
         // thread_data - local thread array to load values from input to
         // source_idx - track source index. needed for remapping partial xforms
+        // input_stride - for reading strided data (for higher dimensional xforms)
         // local_fft_id - ID of FFT batch in CUDA block
         static inline __device__ void load(const complex_type* input,
                                            complex_type*       thread_data,
-										    int*					source_idx,
+										   int*				   source_idx,
+										   int	               input_stride,
                                            unsigned int        local_fft_id) {
             // Calculate global offset of FFT batch
             const unsigned int offset = batch_offset(local_fft_id);
@@ -71,7 +73,7 @@ namespace bah_io {
             const unsigned int stride = stride_size();
             unsigned int       index  = offset + threadIdx.x;
             for (unsigned int i = 0; i < FFT::elements_per_thread; i++) {
-                thread_data[i] = input[index];
+                thread_data[i] = input[index*input_stride];
                 source_idx[i]  = (int)index;
                 index += stride;
             }
@@ -102,13 +104,17 @@ namespace bah_io {
 
         static inline __device__ void store(const complex_type* thread_data,
                                             complex_type*       output,
+										    int*				   source_idx,
+										    int	               output_stride,
                                             unsigned int        local_fft_id) {
-            const unsigned int offset = batch_offset(local_fft_id);
+//            const unsigned int offset = batch_offset(local_fft_id);
             const unsigned int stride = stride_size();
-            unsigned int       index  = offset + threadIdx.x;
+//            unsigned int       index  = offset + threadIdx.x;
             for (unsigned int i = 0; i < FFT::elements_per_thread; i++) {
-                output[index] = thread_data[i];
-                index += stride;
+            	// If no kernel based changes are made to source_idx, this will be the same as the original index value
+            	output[source_idx[i]*output_stride] = thread_data[i];
+//                output[index] = thread_data[i];
+//                index += stride;
             }
         }
 

@@ -935,11 +935,11 @@ void GpuUtilTest::FFTwithRotation()
 	DFT.FFT_R2C_rotate(do_rotation);
 	cudaDeviceSynchronize();
 //
-//	DFT.FFT_C2C_rotate(do_rotation,true);
-//	cudaDeviceSynchronize();
-//
-//	DFT.FFT_C2C_rotate(do_rotation,false);
-//	cudaDeviceSynchronize();
+	DFT.FFT_C2C_rotate(do_rotation,true);
+	cudaDeviceSynchronize();
+
+	DFT.FFT_C2C_rotate(do_rotation,false);
+	cudaDeviceSynchronize();
 
 	DFT.FFT_C2R_rotate(do_rotation);
 	cudaDeviceSynchronize();
@@ -956,7 +956,6 @@ void GpuUtilTest::FFTwithRotation()
 	rotated_fft_inv.QuickAndDirtyWriteSlice("fft_out_rotfft.mrc", 1, false, 1.0);
 
 
-exit(0);
 	buffer.SubtractImage(&rotated_fft_inv);
 	t_rmsd = sqrtf(buffer.ReturnSumOfSquares(0, 0, 0, 0, false));
 	wxPrintf("RMSD between regular gpu fft/ifft pair and cpu fft/ifft pair is %3.3e\n", t_rmsd);

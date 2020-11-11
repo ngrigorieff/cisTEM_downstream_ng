@@ -1119,21 +1119,21 @@ void DFTbyDecomposition::FFT_R2C_rotate(bool rotate)
 	using complex_type = typename FFT::value_type;
 	using scalar_type    = typename complex_type::value_type;
 
-    for (int i=0+4094; i < 5+4094; i++)
-    {
-    	input_image.printVal("val",i);
-    }
-    for (int i=4090+4094; i < 4098+4094; i++)
-    {
-    	input_image.printVal("val",i);
-    }
+//    for (int i=0+4094; i < 5+4094; i++)
+//    {
+//    	input_image.printVal("val",i);
+//    }
+//    for (int i=4090+4094; i < 4098+4094; i++)
+//    {
+//    	input_image.printVal("val",i);
+//    }
 	cudaError_t error_code = cudaSuccess;
 	auto workspace = make_workspace<FFT>(error_code);
 	block_fft_kernel_R2C_rotate<FFT,complex_type,scalar_type><< <gridDims, threadsPerBlock, FFT::shared_memory_size, cudaStreamPerThread>> >
 	( (scalar_type *)input_image.real_values_gpu,  (complex_type*)d_rotated_buffer, input_image.dims, output_image.dims, workspace, rotate);
 
-	cudaErr(cudaPeekAtLastError());
-	cudaErr(cudaDeviceSynchronize());
+//	cudaErr(cudaPeekAtLastError());
+//	cudaErr(cudaDeviceSynchronize());
 
 
 }
@@ -1215,8 +1215,7 @@ void DFTbyDecomposition::FFT_C2C_rotate(bool rotate, bool forward_transform)
 
 	dim3 threadsPerBlock = dim3(test_size/ept,1,1);
 	// The rotated image now has size NY x NW/2
-	dim3 gridDims;
-	gridDims = dim3(output_image.dims.w/2, 1, 1);
+	dim3 gridDims = dim3(1,1,output_image.dims.w/2);
 
 
 
@@ -1230,8 +1229,8 @@ void DFTbyDecomposition::FFT_C2C_rotate(bool rotate, bool forward_transform)
 		    // On the forward the input is in the buffer, do an out of place transform and put back into the roiginal memory
 			block_fft_kernel_C2C_rotate<FFT, complex_type><< <gridDims,threadsPerBlock, FFT::shared_memory_size, cudaStreamPerThread>> >
 			( (complex_type*)d_rotated_buffer, (complex_type*)output_image.complex_values_gpu, input_image.dims, output_image.dims, workspace, rotate);
-		    cudaErr(cudaPeekAtLastError());
-		    cudaErr(cudaDeviceSynchronize());
+//		    cudaErr(cudaPeekAtLastError());
+//		    cudaErr(cudaDeviceSynchronize());
 
 
 		}
@@ -1245,8 +1244,8 @@ void DFTbyDecomposition::FFT_C2C_rotate(bool rotate, bool forward_transform)
 			// On the inverse, do out of place and put back into the bufffer
 			block_fft_kernel_C2C_rotate<FFT, complex_type><< <gridDims, threadsPerBlock, FFT::shared_memory_size, cudaStreamPerThread>> >
 			( (complex_type*)output_image.complex_values_gpu, (complex_type*)d_rotated_buffer, input_image.dims, output_image.dims, workspace, rotate);
-		    cudaErr(cudaPeekAtLastError());
-		    cudaErr(cudaDeviceSynchronize());
+//		    cudaErr(cudaPeekAtLastError());
+//		    cudaErr(cudaDeviceSynchronize());
 
 
 		}
@@ -1269,27 +1268,42 @@ void block_fft_kernel_C2C_rotate(ComplexType* input_values, ComplexType* output_
 	extern __shared__  complex_type shared_mem[];
 
     complex_type thread_data[FFT::storage_size];
+    int source_idx[FFT::storage_size];
+    unsigned int t = 0;
     constexpr int stride = size_of<FFT>::value / FFT::elements_per_thread;
     int index = threadIdx.x;
 
-    for (int i = 0; i < FFT::elements_per_thread; i++)
+    if (rotate)
     {
-    	if (rotate) thread_data[i] = __ldg((const double*)&input_values[blockIdx.x*dims_out.y + index]);
-    	else thread_data[i] = __ldg((const double*)&input_values[blockIdx.x + dims_out.w/2 * index]);
-    	index += stride;
+        for (int i = 0; i < FFT::elements_per_thread; i++)
+        {
+        	thread_data[i] = __ldg((const double*)&input_values[blockIdx.x*dims_out.y + index]);
+        	index += stride;
+        }
     }
+    else
+    {
+        bah_io::io<FFT>::load(&input_values[blockIdx.z], thread_data, source_idx, dims_out.w/2, t);
+
+    }
+
 
 
 
     FFT().execute(thread_data, shared_mem, workspace);
 
-
-    index = threadIdx.x;
-    for (int i = 0; i < FFT::elements_per_thread; i++)
+    if (rotate)
     {
-    	if (rotate) output_values[blockIdx.x*dims_out.y + index] = thread_data[i];
-    	else output_values[blockIdx.x + dims_out.w/2 * index] = thread_data[i];
-    	index += stride;
+		index = threadIdx.x;
+		for (int i = 0; i < FFT::elements_per_thread; i++)
+		{
+			output_values[blockIdx.x*dims_out.y + index] = thread_data[i];
+			index += stride;
+		}
+    }
+    else
+    {
+        bah_io::io<FFT>::store(thread_data, &output_values[blockIdx.z], source_idx, dims_out.w/2, t);
     }
 
 
@@ -1321,8 +1335,8 @@ void DFTbyDecomposition::FFT_C2R_rotate(bool rotate)
 	// On the inverse, do out of place and put back into the bufffer
 	block_fft_kernel_C2R_rotate<FFT, complex_type, scalar_type><< <gridDims, threadsPerBlock, FFT::shared_memory_size, cudaStreamPerThread>> >
 	( (complex_type*)d_rotated_buffer, (scalar_type*)output_image.real_values_gpu, input_image.dims, output_image.dims, workspace, rotate);
-	cudaErr(cudaPeekAtLastError());
-	cudaErr(cudaDeviceSynchronize());
+//	cudaErr(cudaPeekAtLastError());
+//	cudaErr(cudaDeviceSynchronize());
 //
 //	output_image.MultiplyByConstant(1/4096);
 //	cudaErr(cudaPeekAtLastError());
