@@ -715,8 +715,8 @@ void DFTbyDecomposition::FFT_R2C_WithPadding(bool rotate)
 	block_fft_kernel_R2C_WithPadding<FFT,complex_type,scalar_type><< <gridDims,  threadsPerBlock, shared_mem, cudaStreamPerThread>> >
 	( (scalar_type *)input_image.real_values_gpu,  (complex_type*)output_image.complex_values_gpu, input_image.dims, output_image.dims, rotate,twiddle_in,Q);
 
-//	cudaErr(cudaPeekAtLastError());
-//	cudaErr(cudaDeviceSynchronize());
+	cudaErr(cudaPeekAtLastError());
+	cudaErr(cudaDeviceSynchronize());
 
 
 }
@@ -748,7 +748,7 @@ void block_fft_kernel_R2C_WithPadding(ScalarType* input_values, ComplexType* out
     float twiddle_factor_args[FFT::storage_size];
 
     // No need to __syncthreads as each thread only accesses its own shared mem anyway
-    bah_io::io<FFT>::load_r2c_shared(input_values, shared_input, twiddle_factor_args, twiddle_in, input_MAP, output_MAP, Q, 0);
+    bah_io::io<FFT>::load_r2c_shared(&input_values[blockIdx.z*dims_in.w], shared_input, twiddle_factor_args, twiddle_in, input_MAP, output_MAP, Q, 0);
     bah_io::io<FFT>::copy_from_shared(shared_input, thread_data, input_MAP);
 
 
@@ -841,8 +841,8 @@ void DFTbyDecomposition::FFT_C2C_WithPadding_strided(bool rotate)
 	block_fft_kernel_C2C_WithPadding_strided<FFT,complex_type><< <gridDims,  threadsPerBlock, shared_mem, cudaStreamPerThread>> >
 	( (complex_type*)output_image.complex_values_gpu,  (complex_type*)output_image.complex_values_gpu, input_image.dims, output_image.dims, rotate,twiddle_in,Q);
 
-//	cudaErr(cudaPeekAtLastError());
-//	cudaErr(cudaDeviceSynchronize());
+	cudaErr(cudaPeekAtLastError());
+	cudaErr(cudaDeviceSynchronize());
 
 }
 
@@ -856,6 +856,7 @@ void block_fft_kernel_C2C_WithPadding_strided(ComplexType* input_values, Complex
 
 	extern __shared__  complex_type shared_input_complex[];
 	complex_type* shared_mem    = (complex_type*)&shared_input_complex[dims_in.y];
+	complex_type* shifted_output = (complex_type*)&output_values[blockIdx.z];
 
 	// Memory used by FFT
 	complex_type twiddle;
@@ -866,58 +867,40 @@ void block_fft_kernel_C2C_WithPadding_strided(ComplexType* input_values, Complex
     // To re-map the decomposed frequency to the full output frequency
     int output_MAP[FFT::storage_size];
     // For a given decomposed fragment
-    float twiddle_factors_args[FFT::storage_size];
-
-    int i;
-	for (i=0; i < FFT::elements_per_thread; i++)
-	{
-		// index into the input data
-		input_MAP[i] = threadIdx.x + i * (size_of<FFT>::value / FFT::elements_per_thread);
-		output_MAP[i] = Q * input_MAP[i];
-		twiddle_factors_args[i] = twiddle_in * input_MAP[i];
-		// We only need to read in once from global
-		// Unpack the floats and move from shared mem into the register space.in R2C this would happen anyway as a preprocessing step.
-		shared_input_complex[input_MAP[i]] = __ldg((const double *)&input_values[blockIdx.z + dims_out.w/2 * input_MAP[i]]);
-		// Queue up for first round
-		thread_data[i] = shared_input_complex[input_MAP[i]];
+    float twiddle_factor_args[FFT::storage_size];
 
 
-	}
-	__syncthreads();
 
+	bah_io::io<FFT>::load_shared(&input_values[blockIdx.z], shared_input_complex, twiddle_factor_args,
+								 twiddle_in,input_MAP,output_MAP,Q,dims_out.w/2);
 
 	FFT().execute(thread_data, shared_mem);
 
-	for (int i = 0; i < FFT::elements_per_thread; i++)
-	{
-		output_values[blockIdx.z + dims_out.w/2 * output_MAP[i]] = thread_data[i];
-	}
+	bah_io::io<FFT>::store(thread_data, shifted_output, output_MAP, dims_out.w/2);
+
 
 
     // For the other fragments we need the initial twiddle
 	for (int sub_fft = 1; sub_fft < Q; sub_fft++)
 	{
 
+	    bah_io::io<FFT>::copy_from_shared(shared_input_complex, thread_data, input_MAP);
+
 		for (int i = 0; i < FFT::elements_per_thread; i++)
 		{
 			// Pre shift with twiddle
-			__sincosf(twiddle_factors_args[i]*sub_fft,&twiddle.y,&twiddle.x);
-			twiddle *= shared_input_complex[input_MAP[i]]; // Only the inplace operators are included in cufftdx::types TODO expand
-			thread_data[i] = twiddle;
+			__sincosf(twiddle_factor_args[i]*sub_fft,&twiddle.y,&twiddle.x);
+			thread_data[i] *= twiddle;
+			output_MAP[i]++;
+
 		}
 
 
 		FFT().execute(thread_data, shared_mem);
 
-		for (int i = 0; i < FFT::elements_per_thread; i++)
-		{
-			output_values[blockIdx.z + dims_out.w/2 * (sub_fft + output_MAP[i])] = thread_data[i];
-		}
+		bah_io::io<FFT>::store(thread_data, shifted_output, output_MAP, dims_out.w/2);
 
 	}
-
-
-
 
 
 	return;

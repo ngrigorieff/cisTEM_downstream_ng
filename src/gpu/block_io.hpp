@@ -79,6 +79,31 @@ namespace bah_io {
             }
         }
 
+        static inline __device__ void load_shared(const complex_type* input,
+												  complex_type* shared_input,
+												  float* 	 twiddle_factor_args,
+												  float				 twiddle_in,
+												  int*				 input_map,
+												  int*				 output_map,
+												  int				 Q,
+												  int       		 input_stride)
+        {
+            // Calculate global offset of FFT batch
+//            const unsigned int offset = batch_offset(local_fft_id);
+            // Get stride, this shows how elements from batch should be split between threads
+            const unsigned int stride = stride_size();
+            unsigned int       index  =  threadIdx.x;
+            for (unsigned int i = 0; i < FFT::elements_per_thread; i++)
+            {
+            	input_map[i] = index;
+            	output_map[i] = Q*index;
+        		twiddle_factor_args[i] = twiddle_in * input_map[i];
+            	shared_input[index] = input[index*input_stride];
+                index += stride;
+            }
+
+        }
+
         // If InputInRRIILayout is false, then function assumes that values in input are in RIRI
         // layout, and before loading them to thread_data they are converted to RRII layout.
         // Otherwise, if InputInRRIILayout is true, then function assumes values in input are in RRII
@@ -203,6 +228,16 @@ namespace bah_io {
             {
             	thread_data[i].x = shared_input[input_map[i]];
             	thread_data[i].y = 0.0f;
+            }
+        }
+
+        static inline __device__ void copy_from_shared(const complex_type* shared_input_complex,
+        												complex_type*		thread_data,
+														int*				input_map)
+        {
+            for (unsigned int i = 0; i < FFT::elements_per_thread; i++)
+            {
+            	thread_data[i] = shared_input_complex[input_map[i]];
             }
         }
 
