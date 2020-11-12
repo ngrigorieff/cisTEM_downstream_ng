@@ -117,6 +117,22 @@ namespace bah_io {
             }
         }
 
+        static inline __device__ void store(const complex_type* thread_data,
+                                            complex_type*       output,
+										    int*				   source_idx,
+										    int	               output_stride,
+											int				   memory_limit) {
+//            const unsigned int offset = batch_offset(local_fft_id);
+            const unsigned int stride = stride_size();
+//            unsigned int       index  = offset + threadIdx.x;
+            for (unsigned int i = 0; i < FFT::elements_per_thread; i++) {
+            	// If no kernel based changes are made to source_idx, this will be the same as the original index value
+            	if (source_idx[i] < memory_limit) output[source_idx[i]*output_stride] = thread_data[i];
+//                output[index] = thread_data[i];
+//                index += stride;
+            }
+        }
+
 
         // Function assumes that values in thread_data are in RRII layout.
         // If OutputInRRIILayout is false, values are saved into output in RIRI layout; otherwise - in RRII.
@@ -157,10 +173,11 @@ namespace bah_io {
 
         static inline __device__ void load_r2c_shared(const scalar_type* input,
         											  scalar_type* shared_input,
-                                               	   	  complex_type*      thread_data,
 													  float* 	 twiddle_factor_args,
 													  float				 twiddle_in,
 													  int*				 input_map,
+													  int*				 output_map,
+													  int				 Q,
 													  int       		 offset) {
             // Calculate global offset of FFT batch
 //            const unsigned int offset = batch_offset(local_fft_id);
@@ -169,11 +186,24 @@ namespace bah_io {
             unsigned int       index  = offset + threadIdx.x;
             for (unsigned int i = 0; i < FFT::elements_per_thread; i++) {
             	input_map[i] = index;
+            	output_map[i] = Q*index;
         		twiddle_factor_args[i] = twiddle_in * input_map[i];
             	shared_input[index] = input[index];
                 index += stride;
             }
 
+        }
+
+        // Basically the same thing that is happening during preprocessing of a
+        static inline __device__ void copy_from_shared(const scalar_type* shared_input,
+        												complex_type*		thread_data,
+														int*				input_map)
+        {
+            for (unsigned int i = 0; i < FFT::elements_per_thread; i++)
+            {
+            	thread_data[i].x = shared_input[input_map[i]];
+            	thread_data[i].y = 0.0f;
+            }
         }
 
         static inline __device__ void store_r2c(const complex_type* thread_data,

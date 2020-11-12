@@ -755,7 +755,7 @@ void block_fft_kernel_R2C_WithPadding(ScalarType* input_values, ComplexType* out
 	// In the first FFT the modifying twiddle factor is 1 so the data are reeal
 	FFT().execute(thread_data, shared_mem);
 
-	bah_io::io<FFT>::store(thread_data,shared_output,output_map,1, dims_out.w/2);
+	bah_io::io<FFT>::store(thread_data,shared_output,output_MAP,1, dims_out.w/2);
 
 
     // For the other fragments we need the initial twiddle
@@ -778,7 +778,7 @@ void block_fft_kernel_R2C_WithPadding(ScalarType* input_values, ComplexType* out
 
 		FFT().execute(thread_data, shared_mem);
 
-		bah_io::io<FFT>::store(thread_data,shared_output,output_map,1, dims_out.w/2);
+		bah_io::io<FFT>::store(thread_data,shared_output,output_MAP,1, dims_out.w/2);
 
 	}
 //
