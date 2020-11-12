@@ -171,7 +171,6 @@ namespace bah_io {
             	input_map[i] = index;
         		twiddle_factor_args[i] = twiddle_in * input_map[i];
             	shared_input[index] = input[index];
-                reinterpret_cast<scalar_type*>(thread_data)[i] = shared_input[index];
                 index += stride;
             }
 

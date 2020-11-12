@@ -701,7 +701,7 @@ void DFTbyDecomposition::FFT_R2C_WithPadding(bool rotate)
 	dim3 threadsPerBlock = dim3(input_image.dims.x/ept_r, 1, 1); // FIXME make sure its a multiple of 32
 	dim3 gridDims = dim3(1,1, input_image.dims.y);
 
-	using FFT = decltype( FFT_512_r2c() + Direction<fft_direction::forward>() );
+	using FFT = decltype( FFT_512_c2c() + Direction<fft_direction::forward>() );
 //	wxPrintf("FFT::block_dim %d %d %d\n", FFT::block_dim.x,FFT::block_dim.y,FFT::block_dim.z );
 	using complex_type = typename FFT::value_type;
 	using scalar_type    = typename complex_type::value_type;
@@ -746,24 +746,24 @@ void block_fft_kernel_R2C_WithPadding(ScalarType* input_values, ComplexType* out
     int output_MAP[FFT::storage_size];
     // For a given decomposed fragment
     float twiddle_factor_args[FFT::storage_size];
-    int offset[2] =  {0,Q};
 
-    bah_io::io<FFT>::load_r2c_shared(input_values, shared_input, thread_data, twiddle_factor_args, twiddle_in, input_MAP, 0);
-	__syncthreads();
+    // No need to __syncthreads as each thread only accesses its own shared mem anyway
+    bah_io::io<FFT>::load_r2c_shared(input_values, shared_input, twiddle_factor_args, twiddle_in, input_MAP, output_MAP, Q, 0);
+    bah_io::io<FFT>::copy_from_shared(shared_input, thread_data, input_MAP);
+
 
 	// In the first FFT the modifying twiddle factor is 1 so the data are reeal
 	FFT().execute(thread_data, shared_mem);
 
-	bah_io::io<FFT>::store_r2c_rotated(thread_data,shared_output,offset);
-
-
+	bah_io::io<FFT>::store(thread_data,shared_output,output_map,1, dims_out.w/2);
 
 
     // For the other fragments we need the initial twiddle
 	for (int sub_fft = 1; sub_fft < Q; sub_fft++)
 	{
 
-		offset[0] = sub_fft;
+	    bah_io::io<FFT>::copy_from_shared(shared_input, thread_data, input_MAP);
+
 
 		// cufftDX expects packed real data for a real xform, but we modify with a complex twiddle factor.
 		// to get around this, split the complex fft into the sum of the real and imaginary parts
@@ -771,31 +771,19 @@ void block_fft_kernel_R2C_WithPadding(ScalarType* input_values, ComplexType* out
 		{
 			// Pre shift with twiddle
 			__sincosf(twiddle_factor_args[i]*sub_fft,&twiddle.y,&twiddle.x);
-			reinterpret_cast<scalar_type*>(thread_data)[i] = twiddle.x*shared_input[input_MAP[i]];
-
+			thread_data[i] *= twiddle;
+		    // increment the output map. Note this only works for the leading non-zero case
+			output_MAP[i]++;
 		}
 
 		FFT().execute(thread_data, shared_mem);
 
-		bah_io::io<FFT>::store_r2c_rotated(thread_data,shared_output,offset,true);
-
-
-		// now we double back for the imaginary portion
-		for (int i = 0; i < FFT::elements_per_thread; i++)
-		{
-			// The twiddle factors don't need to be recalculated
-			reinterpret_cast<scalar_type*>(thread_data)[i] = twiddle.y*shared_input[input_MAP[i]];
-
-		}
-
-		FFT().execute(thread_data, shared_mem);
-
-		bah_io::io<FFT>::store_r2c_rotated(thread_data,shared_output,offset,true);
-
+		bah_io::io<FFT>::store(thread_data,shared_output,output_map,1, dims_out.w/2);
 
 	}
-//	__syncthreads();
 //
+	__syncthreads();
+
 	// Now that the memory output can be coalesced send to global
 	int this_idx;
 	for (int sub_fft = 0; sub_fft < Q; sub_fft++)
@@ -803,7 +791,10 @@ void block_fft_kernel_R2C_WithPadding(ScalarType* input_values, ComplexType* out
 		for (int i = 0; i < FFT::elements_per_thread; i++)
 		{
 			this_idx = input_MAP[i] + blockDim.x*sub_fft;
-			output_values[blockIdx.z * dims_out.w/2 + this_idx] = shared_output[this_idx];
+			if (this_idx < dims_out.w/2)
+			{
+				output_values[blockIdx.z * dims_out.w/2 + this_idx] = shared_output[this_idx];
+			}
 		}
 	}
 
