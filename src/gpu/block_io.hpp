@@ -212,7 +212,7 @@ namespace bah_io {
             for (unsigned int i = 0; i < FFT::elements_per_thread; i++) {
             	input_map[i] = index;
             	output_map[i] = Q*index;
-        		twiddle_factor_args[i] = twiddle_in * input_map[i];
+        		twiddle_factor_args[i] = twiddle_in * index;
             	shared_input[index] = input[index];
                 index += stride;
             }

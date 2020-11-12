@@ -790,7 +790,7 @@ void block_fft_kernel_R2C_WithPadding(ScalarType* input_values, ComplexType* out
 	{
 		for (int i = 0; i < FFT::elements_per_thread; i++)
 		{
-			this_idx = input_MAP[i] + blockDim.x*sub_fft;
+			this_idx = input_MAP[i] + dims_in.x*sub_fft;
 			if (this_idx < dims_out.w/2)
 			{
 				output_values[blockIdx.z * dims_out.w/2 + this_idx] = shared_output[this_idx];
