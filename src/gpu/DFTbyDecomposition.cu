@@ -25,6 +25,7 @@ const int ffts_per_block_padded = 1;//test_size / pre_padded_size;
 // Elements per thread must be [2,32]
 const int ept_r = 8;
 const int ept_c = 8;
+const int cooperative_stride  = 2;
 // FFts per block. Might be able to re-use twiddles but prob more mem intensive. TODO test me and also evaluate memory size
 const int ffts_per_block = 1; // 1 is the default, higher numbers don't work yet. Might be to do with padding. FIXME
 
@@ -856,7 +857,9 @@ void block_fft_kernel_C2C_WithPadding_strided(ComplexType* input_values, Complex
 
 	extern __shared__  complex_type shared_input_complex[];
 	complex_type* shared_mem    = (complex_type*)&shared_input_complex[dims_in.y];
+
 	complex_type* shifted_output = (complex_type*)&output_values[blockIdx.z];
+	complex_type* shifted_input  = (complex_type*)&input_values[blockIdx.z];
 
 	// Memory used by FFT
 	complex_type twiddle;
@@ -871,8 +874,10 @@ void block_fft_kernel_C2C_WithPadding_strided(ComplexType* input_values, Complex
 
 
 
-	bah_io::io<FFT>::load_shared(&input_values[blockIdx.z], shared_input_complex, twiddle_factor_args,
-								 twiddle_in,input_MAP,output_MAP,Q,dims_out.w/2);
+	bah_io::io<FFT>::load_shared(shifted_input, shared_input_complex, twiddle_factor_args,
+								 twiddle_in,input_MAP,output_MAP,Q, dims_out.w/2);
+    bah_io::io<FFT>::copy_from_shared(shared_input_complex, thread_data, input_MAP);
+
 
 	FFT().execute(thread_data, shared_mem);
 

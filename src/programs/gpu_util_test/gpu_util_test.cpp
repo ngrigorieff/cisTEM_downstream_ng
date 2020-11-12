@@ -755,8 +755,8 @@ MyPrintWithDetails("");
 	// Complete the second dimension and calc cpu 2d xform to compare
 	if (complex_strided)
 	{
-//		DFT.FFT_C2C_WithPadding_strided(do_rotate);
-		DFT.DFT_C2C_WithPadding_strided();
+		DFT.FFT_C2C_WithPadding_strided(do_rotate);
+//		DFT.DFT_C2C_WithPadding_strided();
 	}
 	else
 	{
@@ -800,7 +800,7 @@ MyPrintWithDetails("");
     GpuImage paddedGpu;
     paddedGpu.CopyFromCpuImage(cpu_image_in);
     paddedGpu.CopyHostToDevice();
-    int nLoops = 20;
+    int nLoops = 20000;
 	for (int iLoop = 0; iLoop < nLoops; iLoop++)
 	{
 		timer.start("padded");

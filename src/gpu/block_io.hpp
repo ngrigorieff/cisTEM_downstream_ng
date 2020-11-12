@@ -97,7 +97,7 @@ namespace bah_io {
             {
             	input_map[i] = index;
             	output_map[i] = Q*index;
-        		twiddle_factor_args[i] = twiddle_in * input_map[i];
+        		twiddle_factor_args[i] = twiddle_in * index;
             	shared_input[index] = input[index*input_stride];
                 index += stride;
             }
