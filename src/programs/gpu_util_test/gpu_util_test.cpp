@@ -594,8 +594,8 @@ void GpuUtilTest::DFTbyDecomp()
 	DFTbyDecomposition DFT;
 	int wanted_input_size_x = 512;
 	int wanted_input_size_y = wanted_input_size_x;
-	int wanted_output_size_x = 8*wanted_input_size_x;
-	int wanted_output_size_y = 8*wanted_input_size_x;
+	int wanted_output_size_x = 4096;
+	int wanted_output_size_y = 4096;
 	int wanted_number_of_iterations = 1000;
 
 	DFT.InitTestCase(wanted_input_size_x,wanted_input_size_y,wanted_output_size_x,wanted_output_size_y);
@@ -770,14 +770,14 @@ MyPrintWithDetails("");
 //		DFT.DFT_C2C_WithPadding();
 //		DFT.FFT_C2C_rotate(true, true);
 
-//		DFT.FFT_C2C_WithPadding(do_rotate);
+		DFT.FFT_C2C_WithPadding(do_rotate);
 	}
 
 	if (do_rotate)
 	{
 		MyPrintWithDetails("Doing r2c inverse");
 
-//		DFT.FFT_C2C_rotate(true,false);
+		DFT.FFT_C2C_rotate(true,false);
 		DFT.FFT_C2R_rotate(true);
 	}
 
@@ -816,34 +816,39 @@ MyPrintWithDetails("");
     GpuImage paddedGpu;
     paddedGpu.CopyFromCpuImage(cpu_image_in);
     paddedGpu.CopyHostToDevice();
-    int nLoops = 20;
-	for (int iLoop = 0; iLoop < nLoops; iLoop++)
-	{
-		timer.start("padded");
-		paddedGpu.ForwardFFT(false);
-		paddedGpu.Wait();
-		timer.lap("padded");
-		if (iLoop == 0)     paddedGpu.QuickAndDirtyWriteSlices("FFT_forward.mrc",1,1);
-
-		paddedGpu.BackwardFFT();
-		paddedGpu.AddConstant(rg.GetNormalRandom());
-
-
-	}
+    int nLoops = 60000;
+//	for (int iLoop = 0; iLoop < nLoops; iLoop++)
+//	{
+//		timer.start("padded");
+//		paddedGpu.ForwardFFT(false);
+//		paddedGpu.Wait();
+//		timer.lap("padded");
+//		if (iLoop == 0)     paddedGpu.QuickAndDirtyWriteSlices("FFT_forward.mrc",1,1);
+//
+//		paddedGpu.BackwardFFT();
+//		paddedGpu.AddConstant(rg.GetNormalRandom());
+//
+//
+//	}
 
 	for (int iLoop = 0; iLoop < nLoops; iLoop++)
 	{
 		timer.start("GPU");
-		if (complex_strided)
-		{
+//		if (complex_strided)
+//		{
+//			DFT.FFT_R2C_WithPadding(do_rotate);
+//			DFT.FFT_C2C_WithPadding_strided(do_rotate);
+//		}
+//		else
+//		{
+//			DFT.FFT_R2C_WithPadding_strided(do_rotate);
+//			DFT.FFT_C2C_WithPadding(do_rotate);
+//		}
+
 			DFT.FFT_R2C_WithPadding(do_rotate);
-			DFT.FFT_C2C_WithPadding_strided(do_rotate);
-		}
-		else
-		{
-			DFT.FFT_R2C_WithPadding_strided(do_rotate);
 			DFT.FFT_C2C_WithPadding(do_rotate);
-		}
+
+
 
 		timer.lap("GPU");
 	}
