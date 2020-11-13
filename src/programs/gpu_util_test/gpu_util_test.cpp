@@ -589,7 +589,7 @@ void GpuUtilTest::DFTbyDecomp()
 {
 
 	bool complex_strided = false;
-	bool do_rotate = false;
+	bool do_rotate = true;
 
 	DFTbyDecomposition DFT;
 	int wanted_input_size_x = 512;
@@ -656,9 +656,13 @@ void GpuUtilTest::DFTbyDecomp()
 
 	// Associate the test images in the DFT object. The input is copied device to host, the output is allocated directly on the GPU
 	DFT.SetGpuImages(gpu_image_in, gpu_image_out);
-	if (complex_strided)
+	DFT.AllocateRotatedBuffer();
+	cudaDeviceSynchronize();
+
+
+	if (complex_strided || do_rotate)
 	{
-		MyPrintWithDetails("");
+		MyPrintWithDetails("In ROTATE");
 		DFT.FFT_R2C_WithPadding(do_rotate);
 //		DFT.DFT_R2C_WithPadding();
 
@@ -720,8 +724,8 @@ void GpuUtilTest::DFTbyDecomp()
 //	wxPrintf("\n\n");
 
 
-	DFT.output_image.CopyDeviceToHost(false,false);
-	wxPrintf("\n\n");
+//	DFT.output_image.CopyDeviceToHost(false,false);
+//	wxPrintf("\n\n");
 //
 //	if (complex_strided)
 //	{
@@ -756,7 +760,7 @@ void GpuUtilTest::DFTbyDecomp()
 
 MyPrintWithDetails("");
 	// Complete the second dimension and calc cpu 2d xform to compare
-	if (complex_strided)
+	if (complex_strided && ! do_rotate)
 	{
 		DFT.FFT_C2C_WithPadding_strided(do_rotate);
 //		DFT.DFT_C2C_WithPadding_strided();
@@ -764,18 +768,25 @@ MyPrintWithDetails("");
 	else
 	{
 //		DFT.DFT_C2C_WithPadding();
+//		DFT.FFT_C2C_rotate(true, true);
 
-		DFT.FFT_C2C_WithPadding(do_rotate);
+//		DFT.FFT_C2C_WithPadding(do_rotate);
 	}
-	MyPrintWithDetails("");
 
+	if (do_rotate)
+	{
+		MyPrintWithDetails("Doing r2c inverse");
+
+//		DFT.FFT_C2C_rotate(true,false);
+		DFT.FFT_C2R_rotate(true);
+	}
 
 	cpu_image_in.Resize(wanted_output_size_x, wanted_output_size_y, 1, 0.0f);
 	cpu_image_in.ForwardFFT(false);
 	cpu_image_in.PhaseShift(-(wanted_output_size_x/2-wanted_input_size_x/2), -(wanted_output_size_y/2-wanted_input_size_y/2), 0);
 	cpu_image_in.QuickAndDirtyWriteSlice("cpu_shift.mrc", 1, true, 1.0);
 	DFT.output_image.CopyDeviceToHost(false,false);
-	gpu_image_out.is_in_real_space = false; //
+//	gpu_image_out.is_in_real_space = false; //
     gpu_image_out.QuickAndDirtyWriteSlice("DFT_xformed.mrc", 1, false, 1.0);
 	wxPrintf("2d cpu\n\n");
 
@@ -805,20 +816,20 @@ MyPrintWithDetails("");
     GpuImage paddedGpu;
     paddedGpu.CopyFromCpuImage(cpu_image_in);
     paddedGpu.CopyHostToDevice();
-    int nLoops = 20000;
-//	for (int iLoop = 0; iLoop < nLoops; iLoop++)
-//	{
-//		timer.start("padded");
-//		paddedGpu.ForwardFFT(false);
-//		paddedGpu.Wait();
-//		timer.lap("padded");
-//		if (iLoop == 0)     paddedGpu.QuickAndDirtyWriteSlices("FFT_forward.mrc",1,1);
-//
-//		paddedGpu.BackwardFFT();
-//		paddedGpu.AddConstant(rg.GetNormalRandom());
-//
-//
-//	}
+    int nLoops = 20;
+	for (int iLoop = 0; iLoop < nLoops; iLoop++)
+	{
+		timer.start("padded");
+		paddedGpu.ForwardFFT(false);
+		paddedGpu.Wait();
+		timer.lap("padded");
+		if (iLoop == 0)     paddedGpu.QuickAndDirtyWriteSlices("FFT_forward.mrc",1,1);
+
+		paddedGpu.BackwardFFT();
+		paddedGpu.AddConstant(rg.GetNormalRandom());
+
+
+	}
 
 	for (int iLoop = 0; iLoop < nLoops; iLoop++)
 	{
