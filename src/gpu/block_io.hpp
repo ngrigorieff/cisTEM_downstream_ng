@@ -131,14 +131,10 @@ namespace bah_io {
                                             complex_type*       output,
 										    int*				   source_idx,
 										    int	               output_stride) {
-//            const unsigned int offset = batch_offset(local_fft_id);
             const unsigned int stride = stride_size();
-//            unsigned int       index  = offset + threadIdx.x;
             for (unsigned int i = 0; i < FFT::elements_per_thread; i++) {
             	// If no kernel based changes are made to source_idx, this will be the same as the original index value
             	output[source_idx[i]*output_stride] = thread_data[i];
-//                output[index] = thread_data[i];
-//                index += stride;
             }
         }
 
@@ -203,17 +199,17 @@ namespace bah_io {
 													  int*				 input_map,
 													  int*				 output_map,
 													  int				 Q,
-													  int       		 offset) {
+													  int       		 input_stride) {
             // Calculate global offset of FFT batch
 //            const unsigned int offset = batch_offset(local_fft_id);
             // Get stride, this shows how elements from batch should be split between threads
             const unsigned int stride = stride_size();
-            unsigned int       index  = offset + threadIdx.x;
+            unsigned int       index  = threadIdx.x;
             for (unsigned int i = 0; i < FFT::elements_per_thread; i++) {
             	input_map[i] = index;
             	output_map[i] = Q*index;
         		twiddle_factor_args[i] = twiddle_in * index;
-            	shared_input[index] = input[index];
+            	shared_input[index] = input[index*input_stride];
                 index += stride;
             }
 
