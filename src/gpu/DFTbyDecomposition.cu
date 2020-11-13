@@ -677,7 +677,7 @@ void DFTbyDecomposition::FFT_R2C_WithPadding(bool rotate)
 
 
 	dim3 threadsPerBlock = dim3(input_image.dims.x/ept_r, 1, 1); // FIXME make sure its a multiple of 32
-	dim3 gridDims = dim3(1,Q, input_image.dims.y);
+	dim3 gridDims = dim3(1,1, input_image.dims.y);
 
 	using FFT = decltype( FFT_512_c2c() + Direction<fft_direction::forward>() );
 //	wxPrintf("FFT::block_dim %d %d %d TPB %d MAX %d\n", FFT::block_dim.x,FFT::block_dim.y,FFT::block_dim.z,threadsPerBlock.x,FFT::max_threads_per_block);
@@ -839,18 +839,18 @@ void block_fft_kernel_R2C_WithPadding_rotated(ScalarType* input_values, ComplexT
     bah_io::io<FFT>::copy_from_shared(shared_input, thread_data, input_MAP);
 
 
-//	// In the first FFT the modifying twiddle factor is 1 so the data are reeal
-//	FFT().execute(thread_data, shared_mem);
+	// In the first FFT the modifying twiddle factor is 1 so the data are reeal
+	FFT().execute(thread_data, shared_mem);
 
     // blockIdx.z + (dims_out.w/2 - index - 1)*dims_out.y
     int rotated_offset[2] = {(int)blockIdx.z + (dims_out.w/2 - 1)*dims_out.y, -int(dims_out.y)};
-//    bah_io::io<FFT>::store_rotated(thread_data, output_values, output_MAP, rotated_offset, dims_out.w/2);
-//
-//    // For the other fragments we need the initial twiddle
-//	for (int sub_fft = 1; sub_fft < Q; sub_fft++)
-//	{
-//
-//	    bah_io::io<FFT>::copy_from_shared(shared_input, thread_data, input_MAP);
+    bah_io::io<FFT>::store_rotated(thread_data, output_values, output_MAP, rotated_offset, dims_out.w/2);
+
+    // For the other fragments we need the initial twiddle
+	for (int sub_fft = 1; sub_fft < Q; sub_fft++)
+	{
+
+	    bah_io::io<FFT>::copy_from_shared(shared_input, thread_data, input_MAP);
 
 
 		// cufftDX expects packed real data for a real xform, but we modify with a complex twiddle factor.
@@ -858,17 +858,17 @@ void block_fft_kernel_R2C_WithPadding_rotated(ScalarType* input_values, ComplexT
 		for (int i = 0; i < FFT::elements_per_thread; i++)
 		{
 			// Pre shift with twiddle
-			__sincosf(twiddle_factor_args[i]*blockIdx.y,&twiddle.y,&twiddle.x);
+			__sincosf(twiddle_factor_args[i]*sub_fft,&twiddle.y,&twiddle.x);
 			thread_data[i] *= twiddle;
 		    // increment the output map. Note this only works for the leading non-zero case
-			output_MAP[i]+=blockIdx.y;
+			output_MAP[i]++;
 		}
 
 		FFT().execute(thread_data, shared_mem);
 
 	    bah_io::io<FFT>::store_rotated(thread_data, output_values, output_MAP, rotated_offset,dims_out.w/2);
 
-//	}
+	}
 //
 
 
@@ -1014,9 +1014,7 @@ void DFTbyDecomposition::FFT_C2C_WithPadding(bool rotate)
 		threadsPerBlock = dim3(input_image.dims.y/ept_r, 1, 1); // FIXME make sure its a multiple of 32
 		gridDims = dim3(1,1, output_image.dims.w/2);
 
-//		shared_mem = output_image.dims.y*sizeof(complex_type) + input_image.dims.y*sizeof(complex_type) + FFT::shared_memory_size;
-		shared_mem = input_image.dims.y*sizeof(complex_type) + FFT::shared_memory_size;
-
+		shared_mem = output_image.dims.y*sizeof(complex_type) + input_image.dims.y*sizeof(complex_type) + FFT::shared_memory_size;
 
 	}
 	else
@@ -1069,9 +1067,7 @@ void block_fft_kernel_C2C_WithPadding(ComplexType* input_values, ComplexType* ou
 	if (rotate) shared_output = (complex_type*)&shared_input_complex[dims_in.y];
 	else shared_output = (complex_type*)&shared_input_complex[dims_in.x];
 
-//	if (rotate) shared_mem = (complex_type*)&shared_output[dims_out.y];
-	if (rotate) shared_mem = (complex_type*)&shared_input_complex[dims_in.y];
-
+	if (rotate) shared_mem = (complex_type*)&shared_output[dims_out.y];
 	else shared_mem = (complex_type*)&shared_output[dims_out.w/2];
 
 	int memory_bounds;
@@ -1123,9 +1119,7 @@ void block_fft_kernel_C2C_WithPadding(ComplexType* input_values, ComplexType* ou
 
 		FFT().execute(thread_data, shared_mem);
 
-//		bah_io::io<FFT>::store(thread_data,shared_output,output_MAP,1, memory_bounds);
-		bah_io::io<FFT>::store(thread_data,output_values,output_MAP,1, memory_bounds);
-
+		bah_io::io<FFT>::store(thread_data,shared_output,output_MAP,1, memory_bounds);
 
 //	}
 ////
