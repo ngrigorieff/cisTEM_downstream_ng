@@ -39,7 +39,7 @@ __launch_bounds__(FFT::max_threads_per_block) __global__
 void block_fft_kernel_R2C_WithPadding(ScalarType* input_values, ComplexType* output_values, int4 dims_in, int4 dims_out, bool rotate, float twiddle_in, int Q);
 
 template<class FFT, class ComplexType = typename FFT::value_type, class ScalarType = typename ComplexType::value_type>
-__launch_bounds__(FFT::max_threads_per_block/2) __global__
+__launch_bounds__(FFT::max_threads_per_block) __global__
 void block_fft_kernel_R2C_WithPadding_rotated(ScalarType* input_values, ComplexType* output_values, int4 dims_in, int4 dims_out, bool rotate, float twiddle_in, int Q);
 
 template<class FFT, class ComplexType= typename FFT::value_type>
@@ -692,8 +692,8 @@ void DFTbyDecomposition::FFT_R2C_WithPadding(bool rotate)
 		block_fft_kernel_R2C_WithPadding_rotated<FFT,complex_type,scalar_type><< <gridDims,  threadsPerBlock, shared_mem, cudaStreamPerThread>> >
 		( (scalar_type *)input_image.real_values_gpu,   (complex_type*)d_rotated_buffer, input_image.dims, output_image.dims, rotate,twiddle_in,Q);
 	//
-//		cudaErr(cudaPeekAtLastError());
-//		cudaErr(cudaDeviceSynchronize());
+		cudaErr(cudaPeekAtLastError());
+		cudaErr(cudaDeviceSynchronize());
 	}
 	else
 	{
@@ -1026,7 +1026,7 @@ void DFTbyDecomposition::FFT_C2C_WithPadding(bool rotate)
 	    // will be executed on block level. Shared memory is required for co-operation between threads.
 
 		threadsPerBlock = dim3(input_image.dims.x/ept_r, 1, 1); // FIXME make sure its a multiple of 32
-		gridDims = dim3(1,Q, output_image.dims.y);
+		gridDims = dim3(1,1, output_image.dims.y);
 
 		shared_mem = output_image.dims.w/2*sizeof(complex_type) + input_image.dims.x*sizeof(complex_type) + FFT::shared_memory_size;
 
@@ -1046,8 +1046,8 @@ void DFTbyDecomposition::FFT_C2C_WithPadding(bool rotate)
 	}
 
 //
-//	cudaErr(cudaPeekAtLastError());
-//	cudaErr(cudaDeviceSynchronize());
+	cudaErr(cudaPeekAtLastError());
+	cudaErr(cudaDeviceSynchronize());
 
 
 }
@@ -1092,17 +1092,17 @@ void block_fft_kernel_C2C_WithPadding(ComplexType* input_values, ComplexType* ou
     bah_io::io<FFT>::copy_from_shared(shared_input_complex, thread_data, input_MAP);
 
 
-//	// In the first FFT the modifying twiddle factor is 1 so the data are reeal
-//	FFT().execute(thread_data, shared_mem);
-//
-//	bah_io::io<FFT>::store(thread_data,shared_output,output_MAP,1, memory_bounds);
-//
-//
-//    // For the other fragments we need the initial twiddle
-//	for (int sub_fft = 1; sub_fft < Q; sub_fft++)
-//	{
-//
-//	    bah_io::io<FFT>::copy_from_shared(shared_input_complex, thread_data, input_MAP);
+	// In the first FFT the modifying twiddle factor is 1 so the data are reeal
+	FFT().execute(thread_data, shared_mem);
+
+	bah_io::io<FFT>::store(thread_data,shared_output,output_MAP,1, memory_bounds);
+
+
+    // For the other fragments we need the initial twiddle
+	for (int sub_fft = 1; sub_fft < Q; sub_fft++)
+	{
+
+	    bah_io::io<FFT>::copy_from_shared(shared_input_complex, thread_data, input_MAP);
 
 
 		// cufftDX expects packed real data for a real xform, but we modify with a complex twiddle factor.
@@ -1110,34 +1110,33 @@ void block_fft_kernel_C2C_WithPadding(ComplexType* input_values, ComplexType* ou
 		for (int i = 0; i < FFT::elements_per_thread; i++)
 		{
 			// Pre shift with twiddle
-			__sincosf(twiddle_factor_args[i]*blockIdx.y,&twiddle.y,&twiddle.x);
+			__sincosf(twiddle_factor_args[i]*sub_fft,&twiddle.y,&twiddle.x);
 			thread_data[i] *= twiddle;
 		    // increment the output map. Note this only works for the leading non-zero case
-//			output_MAP[i]++;
-			output_MAP[i]+=blockIdx.y;
+			output_MAP[i]++;
 		}
 
 		FFT().execute(thread_data, shared_mem);
 
 		bah_io::io<FFT>::store(thread_data,shared_output,output_MAP,1, memory_bounds);
 
-//	}
-////
-//	__syncthreads();
+	}
 //
-//	// Now that the memory output can be coalesced send to global
-//	int this_idx;
-//	for (int sub_fft = 0; sub_fft < Q; sub_fft++)
-//	{
-//		for (int i = 0; i < FFT::elements_per_thread; i++)
-//		{
-//			this_idx = input_MAP[i] + dims_in.x*sub_fft;
-//			if (this_idx < memory_bounds)
-//			{
-//				output_values[blockIdx.z * dims_out.w/2 + this_idx] = shared_output[this_idx];
-//			}
-//		}
-//	}
+	__syncthreads();
+
+	// Now that the memory output can be coalesced send to global
+	int this_idx;
+	for (int sub_fft = 0; sub_fft < Q; sub_fft++)
+	{
+		for (int i = 0; i < FFT::elements_per_thread; i++)
+		{
+			this_idx = input_MAP[i] + dims_in.x*sub_fft;
+			if (this_idx < memory_bounds)
+			{
+				output_values[blockIdx.z * dims_out.w/2 + this_idx] = shared_output[this_idx];
+			}
+		}
+	}
 
 
 
