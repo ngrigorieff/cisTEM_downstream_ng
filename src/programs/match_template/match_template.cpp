@@ -500,6 +500,8 @@ bool MatchTemplateApp::DoCalculation()
 
 	input_image.ReadSlice(&input_search_image_file, 1);
 
+	StopWatch timer;
+
 	// Resize input image to be factorizable by small numbers
 	original_input_image_x = input_image.logical_x_dimension;
 	original_input_image_y = input_image.logical_y_dimension;
@@ -974,6 +976,7 @@ bool MatchTemplateApp::DoCalculation()
 #endif
 			}
 
+			timer.start("innerloop");
 			for (current_search_position = first_search_position; current_search_position <= last_search_position; current_search_position++)
 			{
 				//loop over each rotation angle
@@ -984,7 +987,7 @@ bool MatchTemplateApp::DoCalculation()
 
 					angles.Init(global_euler_search.list_of_search_parameters[current_search_position][0], global_euler_search.list_of_search_parameters[current_search_position][1], current_psi, 0.0, 0.0);
 //					angles.Init(130.0, 30.0, 199.5, 0.0, 0.0);
-
+					timer.start("project");
 					if (padding != 1.0f)
 					{
 						template_reconstruction.ExtractSlice(padded_projection, angles, 1.0f, false);
@@ -1002,7 +1005,6 @@ bool MatchTemplateApp::DoCalculation()
 					//if (first_search_position == 0) current_projection.QuickAndDirtyWriteSlice("/tmp/small_proj_nofilter.mrc", 1);
 
 					current_projection.MultiplyPixelWise(projection_filter);
-
 					//if (first_search_position == 0) projection_filter.QuickAndDirtyWriteSlice("/tmp/projection_filter.mrc", 1);
 					//if (first_search_position == 0) current_projection.QuickAndDirtyWriteSlice("/tmp/small_proj_afterfilter.mrc", 1);
 
@@ -1010,6 +1012,7 @@ bool MatchTemplateApp::DoCalculation()
 					//current_projection.DivideByConstant(sqrt(current_projection.ReturnSumOfSquares()));
 					current_projection.BackwardFFT();
 					//current_projection.ReplaceOutliersWithMean(6.0f);
+					timer.lap("project");
 
 					// find the pixel with the largest absolute density, and shift it to the centre
 
@@ -1037,7 +1040,7 @@ bool MatchTemplateApp::DoCalculation()
 	*/
 					///
 
-
+timer.start("normalize");
 					current_projection.AddConstant(-current_projection.ReturnAverageOfRealValuesOnEdges());
 
 
@@ -1047,15 +1050,19 @@ bool MatchTemplateApp::DoCalculation()
 					variance = current_projection.ReturnSumOfSquares() * current_projection.number_of_real_space_pixels / padded_reference.number_of_real_space_pixels \
 							- powf(current_projection.ReturnAverageOfRealValues() * current_projection.number_of_real_space_pixels / padded_reference.number_of_real_space_pixels, 2);
 					current_projection.DivideByConstant(sqrtf(variance));
+					timer.lap("normalize");
+					timer.start("pad");
 					current_projection.ClipIntoLargerRealSpace2D(&padded_reference);
-
+timer.lap("pad");
+timer.start("ForwardFFT");
 					padded_reference.ForwardFFT();
+					timer.lap("ForwardFFT");
 					// Zeroing the central pixel is probably not doing anything useful...
 					padded_reference.ZeroCentralPixel();
 //					padded_reference.DivideByConstant(sqrtf(variance));
 
 					//if (first_search_position == 0)  padded_reference.QuickAndDirtyWriteSlice("/tmp/proj.mrc", 1);
-
+timer.start("conjBackFFT");
 #ifdef MKL
 					// Use the MKL
 					vmcMulByConj(padded_reference.real_memory_allocated/2,reinterpret_cast <MKL_Complex8 *> (input_image.complex_values),reinterpret_cast <MKL_Complex8 *> (padded_reference.complex_values),reinterpret_cast <MKL_Complex8 *> (padded_reference.complex_values),VML_EP|VML_FTZDAZ_ON|VML_ERRMODE_IGNORE);
@@ -1067,6 +1074,8 @@ bool MatchTemplateApp::DoCalculation()
 #endif
 
 					padded_reference.BackwardFFT();
+					timer.lap("conjBackFFT");
+
 //					padded_reference.QuickAndDirtyWriteSlice("cc.mrc", 1);
 //					exit(0);
 
@@ -1081,7 +1090,7 @@ bool MatchTemplateApp::DoCalculation()
 
 					// update mip, and histogram..
 					pixel_counter = 0;
-
+timer.start("stats");
 					for (current_y = 0; current_y < max_intensity_projection.logical_y_dimension; current_y++)
 					{
 						for (current_x = 0; current_x < max_intensity_projection.logical_x_dimension; current_x++)
@@ -1145,8 +1154,11 @@ bool MatchTemplateApp::DoCalculation()
 						temp_result->SetResult(1, &temp_float);
 						AddJobToResultQueue(temp_result);
 					}
+					timer.lap("stats");
 				}
 			}
+			timer.lap("innerloop");
+			timer.print_times();
 		}
 	}
 
