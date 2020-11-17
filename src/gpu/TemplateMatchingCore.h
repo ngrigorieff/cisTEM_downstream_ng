@@ -41,11 +41,16 @@ struct __align__(8) _Peaks {
 //	__half sum_sq_diff;
 //	int N;
 //} Stats;
+//typedef
+//struct __align__(8) _Stats{
+//	cufftReal sum;
+//	cufftReal sq_sum;
+//} Stats;
 typedef
-struct __align__(8) _Stats{
-	cufftReal sum;
-	cufftReal sq_sum;
-} Stats;
+	struct __align__(4) _Stats{
+__half sum;
+__half sq_sum;
+	} Stats;
 
 class TemplateMatchingCore {
 

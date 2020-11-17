@@ -35,7 +35,7 @@ bool GpuUtilTest::DoCalculation()
   wxPrintf("GpuUtilTest is running!\n");
 
 //  this->createImageAddOne();
-  int nThreads = 1;
+  int nThreads = 2;
   int nGPUs = 1;
   this->TemplateMatchingStandalone(nThreads, nGPUs);
 
@@ -49,12 +49,13 @@ bool GpuUtilTest::DoCalculation()
 void GpuUtilTest::TemplateMatchingStandalone(int nThreads, int nGPUs)
 {
 
+	int3 image_size = make_int3(4096,5832,1);
+	int3 ref_size = make_int3(384,384,384);
+
 	int number_of_jobs_per_image_in_gui = 1;
-	nThreads = 2;
-	nGPUs = 1;
 	int minPos = 0;
-	int maxPos = 60;
-	int incPos = 60 / (nThreads*nGPUs); // FIXME
+	int maxPos = 80;
+	int incPos = maxPos / (nThreads*nGPUs); // FIXME
 
 	ProgressBar *my_progress;
 	long total_correlation_positions = 1000; // Not calculated properly: FIXME
@@ -98,17 +99,40 @@ void GpuUtilTest::TemplateMatchingStandalone(int nThreads, int nGPUs)
 
 	    	ImageFile template_reconstruction_file;
 
-	    	template_reconstruction_file.OpenFile("/groups/grigorieff/home/himesb/cisTEM_2/cisTEM/trunk/gpu/include/template_reconstruction.mrc", false);
-	    	template_reconstruction.ReadSlices(&template_reconstruction_file, 1, template_reconstruction_file.ReturnNumberOfSlices());
+	    	RandomNumberGenerator rg(PIf);
 
-			projection_filter.QuickAndDirtyReadSlice("/groups/grigorieff/home/himesb/cisTEM_2/cisTEM/trunk/gpu/include/projection_filter.mrc",1);
-			input_image.QuickAndDirtyReadSlice("/groups/grigorieff/home/himesb/cisTEM_2/cisTEM/trunk/gpu/include/input_image.mrc",1);
-			current_projection.QuickAndDirtyReadSlice("/groups/grigorieff/home/himesb/cisTEM_2/cisTEM/trunk/gpu/include/current_projection.mrc",1);
-			padded_reference.QuickAndDirtyReadSlice("/groups/grigorieff/home/himesb/cisTEM_2/cisTEM/trunk/gpu/include/padded_reference.mrc",1);
+//	    	template_reconstruction_file.OpenFile("/groups/grigorieff/home/himesb/cisTEM_2/cisTEM/trunk/gpu/include/template_reconstruction.mrc", false);
+//	    	template_reconstruction.ReadSlices(&template_reconstruction_file, 1, template_reconstruction_file.ReturnNumberOfSlices());
+	    	template_reconstruction.Allocate(ref_size.x,ref_size.y,ref_size.z,true,true);
+
+	    	for (int i = 0 ; i < template_reconstruction.real_memory_allocated; i++)
+	    	{
+	    		template_reconstruction.real_values[i] = rg.GetNormalRandomSTD(0.0, 1);
+	    	}
+
+	    	input_image.Allocate(image_size.x,image_size.y,image_size.z,true,true);
+
+	    	for (int i = 0 ; i < input_image.real_memory_allocated; i++)
+	    	{
+	    		input_image.real_values[i] = rg.GetNormalRandomSTD(0.0, 1);
+	    	}
+
+	    	projection_filter.Allocate(ref_size.x,ref_size.y,1, true,true);
+
+	    	for (int i = 0 ; i < projection_filter.real_memory_allocated; i++)
+	    	{
+	    		projection_filter.real_values[i] = rg.GetNormalRandomSTD(0.0, 1);
+	    	}
+
+//			projection_filter.QuickAndDirtyReadSlice("/groups/grigorieff/home/himesb/cisTEM_2/cisTEM/trunk/gpu/include/projection_filter.mrc",1);
+//			input_image.QuickAndDirtyReadSlice("/groups/grigorieff/home/himesb/cisTEM_2/cisTEM/trunk/gpu/include/input_image.mrc",1);
+//			current_projection.QuickAndDirtyReadSlice("/groups/grigorieff/home/himesb/cisTEM_2/cisTEM/trunk/gpu/include/current_projection.mrc",1);
+//			padded_reference.QuickAndDirtyReadSlice("/groups/grigorieff/home/himesb/cisTEM_2/cisTEM/trunk/gpu/include/padded_reference.mrc",1);
 
 
-			input_image.Resize(4096,4096,1,0.0f);
+//			input_image.Resize(4096,4096,1,0.0f);
 			padded_reference.CopyFrom(&input_image);
+			current_projection.CopyFrom(&projection_filter);
 			// These are all blank to start
 			max_intensity_projection.CopyFrom(&input_image);
 			best_psi.CopyFrom(&input_image);
@@ -132,7 +156,7 @@ void GpuUtilTest::TemplateMatchingStandalone(int nThreads, int nGPUs)
 
 			float angular_step = 2.5f;
 			float psi_step = 1.5f;
-			float pixel_size = 1.5;
+			float pixel_size = 1.0f;
 			float pixel_size_search_range = 0.0f;
 			float pixel_size_step = 0.001f;
 			float defocus_search_range = 0.0f;
@@ -159,9 +183,9 @@ void GpuUtilTest::TemplateMatchingStandalone(int nThreads, int nGPUs)
 			gpuDev.SetGpu(tIDX);
 
 			int max_padding = 0;
-			const float histogram_min = -20.0f;
-			const float histogram_max = 50.0f;
-			const int histogram_number_of_points = 1024;
+			const float histogram_min = -12.5f;
+			const float histogram_max = 22.5f;
+			const int histogram_number_of_points = 512;
 			float histogram_step;
 			float histogram_min_scaled, histogram_step_scaled;
 			histogram_step = (histogram_max - histogram_min) / float(histogram_number_of_points);
