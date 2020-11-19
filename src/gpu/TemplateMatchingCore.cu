@@ -531,8 +531,8 @@ __global__ void AccumulateSumsKernel(Stats* my_stats, const int numel, cufftReal
 		#pragma unroll (SUM_PIXELWISE_UNROLL)
 		for (unsigned int iVal = 0; iVal < SUM_PIXELWISE_UNROLL; iVal++)
 		{
-			sum[x+iVal] += my_stats[x+iVal].sum;
-			sq_sum[x+iVal] += my_stats[x+iVal].sq_sum;
+			sum[x+iVal] += __half2float(my_stats[x+iVal].sum);
+			sq_sum[x+iVal] += __half2float (my_stats[x+iVal].sq_sum);
 
 			my_stats[x+iVal].sum = (__half)0.0;
 			my_stats[x+iVal].sq_sum = (__half)0.0;
