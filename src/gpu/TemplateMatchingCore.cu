@@ -1,6 +1,5 @@
-#include "gpu_core_headers.h"
-
 #define DO_HISTOGRAM true
+#include "gpu_core_headers.h"
 
 const unsigned int SUM_PIXELWISE_UNROLL = 1;
 const unsigned int MIP_PIXELWISE_UNROLL = 1;
@@ -165,6 +164,10 @@ void TemplateMatchingCore::RunInnerLoop(Image &projection_filter, float c_pixel,
 
 	cudaErr(cudaMalloc((void **)&my_peaks, sizeof(Peaks)*d_input_image.real_memory_allocated));
 	cudaErr(cudaMalloc((void **)&my_stats, sizeof(Stats)*d_input_image.real_memory_allocated));
+	cudaErr(cudaMemset((void*)my_peaks,-9999,sizeof(Peaks)*d_input_image.real_memory_allocated));
+	cudaErr(cudaMemset((void*)my_stats,0,sizeof(Peaks)*d_input_image.real_memory_allocated));
+
+
 
 	cudaEvent_t projection_is_free_Event, gpu_work_is_done_Event;
 	cudaErr(cudaEventCreateWithFlags(&projection_is_free_Event, cudaEventDisableTiming));
@@ -423,29 +426,32 @@ __global__ void MipPixelWiseKernel(const cufftReal*  correlation_output, Peaks* 
 									__half psi, __half theta, __half phi, Stats* my_stats)
 {
 
-	Peaks tmp_peak;
+//	Peaks tmp_peak;
 
     for ( int i = blockIdx.x*blockDim.x + threadIdx.x; i < numel; i+=blockDim.x * gridDim.x)
     {
+
+    	my_stats[i].sq_sum += __float2half_rn(correlation_output[i]*correlation_output[i]);
 		const __half half_val = __float2half_rn(correlation_output[i]);
 //		const float val = correlation_output[i];
 //    	my_stats[i].sum += val;
 //    	my_stats[i].sq_sum += val*val;
     	my_stats[i].sum = __hadd(my_stats[i].sum, half_val);
-    	my_stats[i].sq_sum = __hfma(half_val,half_val,my_stats[i].sq_sum);
-    	tmp_peak = my_peaks[i];
+//    	my_stats[i].sq_sum = __hfma(half_val,half_val,my_stats[i].sq_sum);
+//    	tmp_peak = my_peaks[i];
 //		const __half half_val = __float2half_rn(val);
 
-
-			tmp_peak.mip = half_val;
-			tmp_peak.psi = psi;
-			tmp_peak.theta = theta;
-			tmp_peak.phi = phi;
-			if ( __hgt( half_val , tmp_peak.mip) )
+//			tmp_peak.psi = psi;
+//			tmp_peak.theta = theta;
+//			tmp_peak.phi = phi;
+			if (  half_val > my_peaks[i].mip )
 			{
-			my_peaks[i] = tmp_peak;
-
-		}
+//				tmp_peak.mip = half_val;
+				my_peaks[i].mip = half_val;
+				my_peaks[i].psi = psi;
+				my_peaks[i].theta = theta;
+				my_peaks[i].phi = phi;
+			}
     }
 //
 //    const unsigned int x = MIP_PIXELWISE_UNROLL *(blockIdx.x*blockDim.x + threadIdx.x);

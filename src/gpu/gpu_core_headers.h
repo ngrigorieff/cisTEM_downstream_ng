@@ -103,4 +103,6 @@ static __device__ __host__ inline Complex ComplexConjMulAndScale(Complex a, Comp
     return c;
 }
 
+
+
 #endif /* GPU_CORE_HEADERS_H_ */

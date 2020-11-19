@@ -19,8 +19,8 @@ struct __align__(8) _Peaks {
 	__half psi;
 	__half theta;
 	__half phi;
-
-} Peaks;
+//
+//} Peaks;
 //typedef
 //struct __align__(16) _Peaks {
 //	// This should be 128 byte words, so good for read access?
@@ -50,7 +50,7 @@ typedef
 	struct __align__(4) _Stats{
 __half sum;
 __half sq_sum;
-	} Stats;
+} Stats;
 
 class TemplateMatchingCore {
 

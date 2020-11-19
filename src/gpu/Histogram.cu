@@ -7,7 +7,6 @@
 
 #include "gpu_core_headers.h"
 
-
 __global__ void histogram_smem_atomics(const Npp32f* in, int4 dims, float *out, int n_bins, const float bin_min, const float bin_inc, const int max_padding);
 
 
