@@ -42,9 +42,9 @@ WX_DEFINE_OBJARRAY(ArrayOfAggregatedTemplateResults);
 
 // nasty globals to track histogram size
 
-int histogram_number_of_points = 1024;
-float histogram_min = -20.0f;
-float histogram_max = 50.0f;
+int histogram_number_of_points = 512;
+float histogram_min = -12.5f;
+float histogram_max = 22.5f;
 
 class
 MatchTemplateApp : public MyApp
