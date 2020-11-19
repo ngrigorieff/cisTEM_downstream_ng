@@ -1,5 +1,6 @@
 #include "gpu_core_headers.h"
 
+
 DeviceManager::DeviceManager() 
 {
 

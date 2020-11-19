@@ -12,13 +12,13 @@
 //
 //} Peaks;
 
-typedef
-struct __align__(8) _Peaks {
-	// This should be 128 byte words, so good for read access?
-	__half mip;
-	__half psi;
-	__half theta;
-	__half phi;
+//typedef
+//struct __align__(8) _Peaks {
+//	// This should be 128 byte words, so good for read access?
+//	__half mip;
+//	__half psi;
+//	__half theta;
+//	__half phi;
 //
 //} Peaks;
 //typedef
@@ -46,11 +46,11 @@ struct __align__(8) _Peaks {
 //	cufftReal sum;
 //	cufftReal sq_sum;
 //} Stats;
-typedef
-	struct __align__(4) _Stats{
-__half sum;
-__half sq_sum;
-} Stats;
+//typedef
+//	struct __align__(4) _Stats{
+//__half sum;
+//__half sq_sum;
+//} Stats;
 
 class TemplateMatchingCore {
 
@@ -137,6 +137,7 @@ public:
 
 	Stats* my_stats;
 	Peaks* my_peaks;
+	Peaks* my_new_peaks; // for passing euler angles to the callback
 	void SumPixelWise(GpuImage &image);
     void MipPixelWise(GpuImage &image, __half psi, __half theta, __half phi);
 	void MipToImage(const Peaks* my_peaks, GpuImage &mip, GpuImage &psi, GpuImage &theta, GpuImage &phi);

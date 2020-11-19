@@ -7,10 +7,6 @@
 
 //#include "gpu_core_headers.h"
 
-
-//#include <Exceptions.h>
-//#include <helper_string.h>
-// Kernel declarations
 #include "gpu_core_headers.h"
 
 
@@ -79,18 +75,18 @@ __device__ void CB_mipCCGAndStore(void* dataOut, size_t offset, cufftReal elemen
 	CB_mipCCGAndStore_params* my_params = (CB_mipCCGAndStore_params *)callerInfo;
 	((cufftReal *)dataOut)[offset] = (cufftReal)element;
 
-	my_params->stats[offset].sq_sum += __float2half_rn(element*element);
 	const __half half_val = __float2half_rn(element);
+	my_params->stats[offset].sq_sum =  __hfma(__half(1000.)*half_val,half_val,my_params->stats[offset].sq_sum);
 
-	my_params->stats[i].sum = __hadd(my_params->stats[i].sum, half_val);
+	my_params->stats[offset].sum = __hadd(my_params->stats[offset].sum, half_val);
 
-	if (  half_val > my_params->peaks[i].mip )
+	if (  half_val > my_params->peaks[offset].mip )
 	{
 //				tmp_peak.mip = half_val;
-		my_params->peaks[i].mip = half_val;
-		my_params->peaks[i].psi = my_params->new_peaks[i].psi;
-		my_params->peaks[i].theta = my_params->new_peaks[i].theta;
-		my_params->peaks[i].phi = my_params->new_peaks[i].phi;
+		my_params->peaks[offset].mip = half_val;
+		my_params->peaks[offset].psi = my_params->new_peaks[0].psi;
+		my_params->peaks[offset].theta = my_params->new_peaks[0].theta;
+		my_params->peaks[offset].phi = my_params->new_peaks[0].phi;
 	}
 
 //
@@ -1577,7 +1573,7 @@ void GpuImage::BackwardFFT()
 
 }
 
-template < typename T > void GpuImage::BackwardFFTAfterComplexConjMul(T* image_to_multiply, bool load_half_precision, Peaks* my_peaks, Peaks* new_peaks, Stats* my_stats)
+template < typename T > void GpuImage::BackwardFFTAfterComplexConjMul(T* image_to_multiply, bool load_half_precision, Peaks* my_peaks, Peaks* my_new_peaks, Stats* my_stats)
 {
 
 	MyAssertTrue(is_in_memory_gpu, "Gpu memory not allocated");
@@ -1587,19 +1583,16 @@ template < typename T > void GpuImage::BackwardFFTAfterComplexConjMul(T* image_t
 	{
 		SetCufftPlan();
 	}
-
 	if ( ! is_set_complexConjMulLoad )
 	{
 		cufftCallbackStoreC h_complexConjMulLoad;
 		cufftCallbackStoreR h_mipCCGStore;
-
 		CB_complexConjMulLoad_params<T>* d_params;
 		CB_complexConjMulLoad_params<T> h_params;
 		h_params.scale = ft_normalization_factor*ft_normalization_factor;
 		h_params.target = (T *)image_to_multiply;
 		cudaErr(cudaMalloc((void **)&d_params,sizeof(CB_complexConjMulLoad_params<T>)));
 		cudaErr(cudaMemcpyAsync(d_params, &h_params, sizeof(CB_complexConjMulLoad_params<T>), cudaMemcpyHostToDevice, cudaStreamPerThread));
-
 		if (load_half_precision)
 		{
 			cudaErr(cudaMemcpyFromSymbol(&h_complexConjMulLoad,d_complexConjMulLoad_16f, sizeof(h_complexConjMulLoad)));
@@ -1608,17 +1601,24 @@ template < typename T > void GpuImage::BackwardFFTAfterComplexConjMul(T* image_t
 		{
 			cudaErr(cudaMemcpyFromSymbol(&h_complexConjMulLoad,d_complexConjMulLoad_32f, sizeof(h_complexConjMulLoad)));
 		}
+		CB_mipCCGAndStore_params* d_params_store;
+		CB_mipCCGAndStore_params  h_params_store;
+		cudaErr(cudaMalloc((void **)&d_params_store,sizeof(CB_mipCCGAndStore_params)));
 
-		CB_mipCCGAndStore* d_params_store;
-		CB_mipCCGAndStore h_params_store;
-		h_params
+		h_params_store.peaks = my_peaks;
+		h_params_store.stats = my_stats;
+		h_params_store.new_peaks = my_new_peaks;
+
+		// Copy host memory to device
+		checkCudaErrors(cudaMemcpyAsync(d_params_store, &h_params_store, sizeof(CB_mipCCGAndStore_params),
+		                               cudaMemcpyHostToDevice, cudaStreamPerThread));
 
 
 		cudaErr(cudaStreamSynchronize(cudaStreamPerThread));
 		cudaErr(cufftXtSetCallback(cuda_plan_inverse, (void **)&h_complexConjMulLoad, CUFFT_CB_LD_COMPLEX, (void **)&d_params));
+		cudaErr(cufftXtSetCallback(cuda_plan_inverse, (void **)&h_mipCCGStore, CUFFT_CB_ST_REAL, (void **)&d_params_store));
 
-		__device__ cufftCallbackStoreR d_mipCCGAndStorePtr = CB_mipCCGAndStore;
-
+		MyPrintWithDetails("");
 //		d_complexConjMulLoad;
 		is_set_complexConjMulLoad = true;
 	}
@@ -1632,8 +1632,9 @@ template < typename T > void GpuImage::BackwardFFTAfterComplexConjMul(T* image_t
 	npp_ROI = npp_ROI_real_space;
 
 }
-template void GpuImage::BackwardFFTAfterComplexConjMul(__half2* image_to_multiply, bool load_half_precision);
-template void GpuImage::BackwardFFTAfterComplexConjMul(cufftComplex* image_to_multiply, bool load_half_precision);
+
+template void GpuImage::BackwardFFTAfterComplexConjMul(__half2* image_to_multiply, bool load_half_precision, Peaks* my_peaks, Peaks* new_peaks, Stats* my_stats);
+template void GpuImage::BackwardFFTAfterComplexConjMul(cufftComplex* image_to_multiply, bool load_half_precision, Peaks* my_peaks, Peaks* my_new_peaks, Stats* my_stats);
 
 
 

@@ -1,5 +1,6 @@
-#define DO_HISTOGRAM true
 #include "gpu_core_headers.h"
+
+#define DO_HISTOGRAM true
 
 const unsigned int SUM_PIXELWISE_UNROLL = 1;
 const unsigned int MIP_PIXELWISE_UNROLL = 1;
@@ -163,9 +164,10 @@ void TemplateMatchingCore::RunInnerLoop(Image &projection_filter, float c_pixel,
 	d_input_image.ConvertToHalfPrecision(false);
 
 	cudaErr(cudaMalloc((void **)&my_peaks, sizeof(Peaks)*d_input_image.real_memory_allocated));
+	cudaErr(cudaMallocManaged((void **)&my_new_peaks, sizeof(Peaks)));
 	cudaErr(cudaMalloc((void **)&my_stats, sizeof(Stats)*d_input_image.real_memory_allocated));
-	cudaErr(cudaMemset((void*)my_peaks,-9999,sizeof(Peaks)*d_input_image.real_memory_allocated));
-	cudaErr(cudaMemset((void*)my_stats,0,sizeof(Peaks)*d_input_image.real_memory_allocated));
+//	cudaErr(cudaMemset(my_peaks,-100,sizeof(Peaks)*d_input_image.real_memory_allocated));
+//	cudaErr(cudaMemset(my_stats,0,sizeof(Peaks)*d_input_image.real_memory_allocated));
 
 
 
@@ -195,9 +197,12 @@ void TemplateMatchingCore::RunInnerLoop(Image &projection_filter, float c_pixel,
 			wxPrintf("Starting position %d/ %d\n", current_search_position, last_search_position);
 		}
 
+		my_new_peaks[0].theta =  __float2half_rn(global_euler_search.list_of_search_parameters[current_search_position][1]);
+		my_new_peaks[0].phi =  __float2half_rn(global_euler_search.list_of_search_parameters[current_search_position][0]);
 
 		for (float current_psi = psi_start; current_psi <= psi_max; current_psi += psi_step)
 		{
+			my_new_peaks[0].phi = __float2half_rn(current_psi);
 
 			angles.Init(global_euler_search.list_of_search_parameters[current_search_position][0], global_euler_search.list_of_search_parameters[current_search_position][1], current_psi, 0.0, 0.0);
 //			current_projection.SetToConstant(0.0f); // This also sets the FFT padding to zero
@@ -230,7 +235,7 @@ void TemplateMatchingCore::RunInnerLoop(Image &projection_filter, float c_pixel,
 			d_padded_reference.ForwardFFT(false);
 
 			//      d_padded_reference.ForwardFFTAndClipInto(d_current_projection,false);
-			d_padded_reference.BackwardFFTAfterComplexConjMul(d_input_image.complex_values_16f, true);
+			d_padded_reference.BackwardFFTAfterComplexConjMul(d_input_image.complex_values_16f, true, my_peaks, my_new_peaks, my_stats);
 
 //			d_padded_reference.BackwardFFTAfterComplexConjMul(d_input_image.complex_values_gpu, false);
 
@@ -259,8 +264,8 @@ void TemplateMatchingCore::RunInnerLoop(Image &projection_filter, float c_pixel,
 //			}
 //			else
 //			{
-				this->MipPixelWise(d_padded_reference, __float2half_rn(current_psi) , __float2half_rn(global_euler_search.list_of_search_parameters[current_search_position][1]),
-																					  __float2half_rn(global_euler_search.list_of_search_parameters[current_search_position][0]));
+//				this->MipPixelWise(d_padded_reference, __float2half_rn(current_psi) , __float2half_rn(global_euler_search.list_of_search_parameters[current_search_position][1]),
+//																					  __float2half_rn(global_euler_search.list_of_search_parameters[current_search_position][0]));
 	//			this->MipPixelWise(d_padded_reference, float(current_psi) , float(global_euler_search.list_of_search_parameters[current_search_position][1]),
 	//																			 	 float(global_euler_search.list_of_search_parameters[current_search_position][0]));
 //				this->SumPixelWise(d_padded_reference);
@@ -431,13 +436,13 @@ __global__ void MipPixelWiseKernel(const cufftReal*  correlation_output, Peaks* 
     for ( int i = blockIdx.x*blockDim.x + threadIdx.x; i < numel; i+=blockDim.x * gridDim.x)
     {
 
-    	my_stats[i].sq_sum += __float2half_rn(correlation_output[i]*correlation_output[i]);
+//    	my_stats[i].sq_sum += __float2half_rn(1000.0f*correlation_output[i]*correlation_output[i]);
 		const __half half_val = __float2half_rn(correlation_output[i]);
 //		const float val = correlation_output[i];
 //    	my_stats[i].sum += val;
 //    	my_stats[i].sq_sum += val*val;
     	my_stats[i].sum = __hadd(my_stats[i].sum, half_val);
-//    	my_stats[i].sq_sum = __hfma(half_val,half_val,my_stats[i].sq_sum);
+    	my_stats[i].sq_sum = __hfma(__half(1000.)*half_val,half_val,my_stats[i].sq_sum);
 //    	tmp_peak = my_peaks[i];
 //		const __half half_val = __float2half_rn(val);
 
@@ -538,7 +543,7 @@ __global__ void AccumulateSumsKernel(Stats* my_stats, const int numel, cufftReal
 		for (unsigned int iVal = 0; iVal < SUM_PIXELWISE_UNROLL; iVal++)
 		{
 			sum[x+iVal] += __half2float(my_stats[x+iVal].sum);
-			sq_sum[x+iVal] += __half2float (my_stats[x+iVal].sq_sum);
+			sq_sum[x+iVal] += 0.001f * __half2float (my_stats[x+iVal].sq_sum);
 
 			my_stats[x+iVal].sum = (__half)0.0;
 			my_stats[x+iVal].sq_sum = (__half)0.0;

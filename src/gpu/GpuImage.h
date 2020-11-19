@@ -8,6 +8,21 @@
 #ifndef GPUIMAGE_H_
 #define GPUIMAGE_H_
 
+typedef
+	struct __align__(4) _Stats{
+__half sum;
+__half sq_sum;
+} Stats;
+
+typedef
+struct __align__(8) _Peaks {
+	// This should be 128 byte words, so good for read access?
+	__half mip;
+	__half psi;
+	__half theta;
+	__half phi;
+
+} Peaks;
 
 class GpuImage {
 
@@ -150,7 +165,7 @@ public:
 	void ForwardFFT(bool should_scale = true);                                           /**CPU_eq**/
 	void BackwardFFT();                                                                   /**CPU_eq**/
 	void ForwardFFTAndClipInto(GpuImage &image_to_insert, bool should_scale);
-	template < typename T > void BackwardFFTAfterComplexConjMul(T* image_to_multiply, bool load_half_precision = false);
+	template < typename T > void BackwardFFTAfterComplexConjMul(T* image_to_multiply, bool load_half_precision, Peaks* my_peaks, Peaks* new_peaks, Stats* my_stats);
 
 
 	float ReturnSumOfSquares();
