@@ -183,9 +183,9 @@ void GpuUtilTest::TemplateMatchingStandalone(int nThreads, int nGPUs)
 			gpuDev.SetGpu(tIDX);
 
 			int max_padding = 0;
-			const float histogram_min = -20.0f;
-			const float histogram_max = 50.0f;
-			const int histogram_number_of_points = 1024;
+			const float histogram_min = -12.5f;
+			const float histogram_max = 22.5f;
+			const int histogram_number_of_points = 512;
 			float histogram_step;
 			float histogram_min_scaled, histogram_step_scaled;
 			histogram_step = (histogram_max - histogram_min) / float(histogram_number_of_points);
