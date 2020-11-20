@@ -6,7 +6,7 @@ const unsigned int SUM_PIXELWISE_UNROLL = 1;
 const unsigned int MIP_PIXELWISE_UNROLL = 1;
 
 __global__ void  SumPixelWiseKernel(const cufftReal* correlation_output, Stats* my_stats, const int numel);
-__global__ void MipPixelWiseKernel(const __half* correlation_output, Peaks* my_peaks, const int  numel,
+__global__ void MipPixelWiseKernel(__half* correlation_output, Peaks* my_peaks, const int  numel,
                                    __half psi, __half theta, __half phi, Stats* my_stats);
 
 
@@ -203,7 +203,7 @@ void TemplateMatchingCore::RunInnerLoop(Image &projection_filter, float c_pixel,
 
 		for (float current_psi = psi_start; current_psi <= psi_max; current_psi += psi_step)
 		{
-			my_new_peaks[0].phi = __float2half_rn(current_psi);
+			my_new_peaks[0].psi = __float2half_rn(current_psi);
 
 			angles.Init(global_euler_search.list_of_search_parameters[current_search_position][0], global_euler_search.list_of_search_parameters[current_search_position][1], current_psi, 0.0, 0.0);
 //			current_projection.SetToConstant(0.0f); // This also sets the FFT padding to zero
@@ -236,9 +236,10 @@ void TemplateMatchingCore::RunInnerLoop(Image &projection_filter, float c_pixel,
 			d_padded_reference.ForwardFFT(false);
 
 			//      d_padded_reference.ForwardFFTAndClipInto(d_current_projection,false);
-			d_padded_reference.BackwardFFTAfterComplexConjMul(d_input_image.complex_values_16f, true, my_peaks, my_new_peaks, my_stats);
+			d_padded_reference.BackwardFFTAfterComplexConjMul(d_input_image.complex_values_16f, true);
 
 //			d_padded_reference.BackwardFFTAfterComplexConjMul(d_input_image.complex_values_gpu, false);
+//			d_padded_reference.ConvertToHalfPrecision(false);
 
 
 
@@ -265,7 +266,7 @@ void TemplateMatchingCore::RunInnerLoop(Image &projection_filter, float c_pixel,
 //			}
 //			else
 //			{
-				this->MipPixelWise(d_padded_reference, __float2half_rn(current_psi) , __float2half_rn(global_euler_search.list_of_search_parameters[current_search_position][1]),
+				this->MipPixelWise( __float2half_rn(current_psi) , __float2half_rn(global_euler_search.list_of_search_parameters[current_search_position][1]),
 																					  __float2half_rn(global_euler_search.list_of_search_parameters[current_search_position][0]));
 	//			this->MipPixelWise(d_padded_reference, float(current_psi) , float(global_euler_search.list_of_search_parameters[current_search_position][1]),
 	//																			 	 float(global_euler_search.list_of_search_parameters[current_search_position][0]));
@@ -411,7 +412,7 @@ __global__ void SumPixelWiseKernel(const cufftReal* correlation_output, Stats* m
 
 
 
-void TemplateMatchingCore::MipPixelWise(GpuImage &image, __half psi, __half theta, __half phi)
+void TemplateMatchingCore::MipPixelWise( __half psi, __half theta, __half phi)
 {
 
 	pre_checkErrorsAndTimingWithSynchronization(cudaStreamPerThread);
@@ -420,15 +421,15 @@ void TemplateMatchingCore::MipPixelWise(GpuImage &image, __half psi, __half thet
 //	int N = 64;
 
 	// N*
-	image.ReturnLaunchParamtersLimitSMs(64,512);
+	d_padded_reference.ReturnLaunchParamtersLimitSMs(64,512);
 
 
-	MipPixelWiseKernel<< <image.gridDims, image.threadsPerBlock,0,cudaStreamPerThread>> >((__half *)image.real_values_16f, my_peaks,(int) image.real_memory_allocated - MIP_PIXELWISE_UNROLL + 1, psi,theta, phi, my_stats);
+	MipPixelWiseKernel<< <d_padded_reference.gridDims, d_padded_reference.threadsPerBlock,0,cudaStreamPerThread>> >((__half *)d_padded_reference.real_values_16f, my_peaks,(int)d_padded_reference.real_memory_allocated , psi,theta, phi, my_stats);
 	checkErrorsAndTimingWithSynchronization(cudaStreamPerThread);
 
 }
 
-__global__ void MipPixelWiseKernel(const __half* correlation_output, Peaks* my_peaks, const int  numel,
+__global__ void MipPixelWiseKernel(__half* correlation_output, Peaks* my_peaks, const int  numel,
 									__half psi, __half theta, __half phi, Stats* my_stats)
 {
 

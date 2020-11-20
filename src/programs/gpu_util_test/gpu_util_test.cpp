@@ -49,6 +49,26 @@ bool GpuUtilTest::DoCalculation()
 void GpuUtilTest::TemplateMatchingStandalone(int nThreads, int nGPUs)
 {
 
+//	float* f;
+//	__half* h;
+//	cudaMallocManaged(&f,8*sizeof(float));
+//	cudaMallocManaged(&h,8*sizeof(__half));
+//
+//	for (int i = 0; i < 8; i++)
+//	{
+//		f[i] = i;
+//		wxPrintf("Loaded the value %i into f and it is %f\n",i,f[i]);
+//
+//	}
+//
+//	for (int i = 0; i < 8; i++)
+//	{
+//		h[i] = __float2half(f[i]);
+//		wxPrintf("Loaded the value %i into h and it is %f\n",i,__half2float(h[i]));
+//
+//	}
+//
+//	exit(0);
 	int3 image_size = make_int3(4096,5832,1);
 	int3 ref_size = make_int3(384,384,384);
 

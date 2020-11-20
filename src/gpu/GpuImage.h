@@ -165,7 +165,7 @@ public:
 	void ForwardFFT(bool should_scale = true);                                           /**CPU_eq**/
 	void BackwardFFT();                                                                   /**CPU_eq**/
 	void ForwardFFTAndClipInto(GpuImage &image_to_insert, bool should_scale);
-	template < typename T > void BackwardFFTAfterComplexConjMul(T* image_to_multiply, bool load_half_precision, Peaks* my_peaks, Peaks* new_peaks, Stats* my_stats);
+	template < typename T > void BackwardFFTAfterComplexConjMul(T* image_to_multiply, bool load_half_precision);
 
 
 	float ReturnSumOfSquares();

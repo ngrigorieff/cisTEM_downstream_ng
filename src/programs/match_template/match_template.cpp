@@ -1256,7 +1256,7 @@ bool MatchTemplateApp::DoCalculation()
 		// calculate the expected threshold (from peter's paper)
 		const float CCG_NOISE_STDDEV = 1.0;
 		double temp_threshold;
-		double erf_input = 1.0 / (2.0 * (double)original_input_image_x * (double)original_input_image_y * (double)total_correlation_positions);
+		double erf_input = 2.0 / (1.0 * (double)original_input_image_x * (double)original_input_image_y * (double)total_correlation_positions);
 #ifdef MKL
 		vdErfcInv(1, &erf_input, &temp_threshold);
 #else
@@ -1771,7 +1771,7 @@ void MatchTemplateApp::MasterHandleProgramDefinedResult(float *result_array, lon
 		// calculate the expected threshold (from peter's paper)
 		const float CCG_NOISE_STDDEV = 1.0;
 		double temp_threshold = 0.0;
-		double erf_input = 1.0 / (2.0 * ((double)aggregated_results[array_location].collated_data_array[0] * (double)aggregated_results[array_location].collated_data_array[1] * (double)aggregated_results[array_location].total_number_of_ccs));
+		double erf_input = 2.0 / (1.0 * ((double)aggregated_results[array_location].collated_data_array[0] * (double)aggregated_results[array_location].collated_data_array[1] * (double)aggregated_results[array_location].total_number_of_ccs));
 //		wxPrintf("ox oy total %3.3e %3.3e %3.3e\n", (double)result_array[5] , (double)result_array[6] , (double)aggregated_results[array_location].total_number_of_ccs, erf_input);
 
 #ifdef MKL
