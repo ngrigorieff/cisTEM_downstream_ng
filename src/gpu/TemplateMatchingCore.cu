@@ -6,7 +6,7 @@ const unsigned int SUM_PIXELWISE_UNROLL = 1;
 const unsigned int MIP_PIXELWISE_UNROLL = 1;
 
 __global__ void  SumPixelWiseKernel(const cufftReal* correlation_output, Stats* my_stats, const int numel);
-__global__ void MipPixelWiseKernel(const cufftReal*  correlation_output, Peaks* my_peaks, const int  numel,
+__global__ void MipPixelWiseKernel(const __half* correlation_output, Peaks* my_peaks, const int  numel,
                                    __half psi, __half theta, __half phi, Stats* my_stats);
 
 
@@ -162,6 +162,7 @@ void TemplateMatchingCore::RunInnerLoop(Image &projection_filter, float c_pixel,
 	// Either do not delete the single precision, or add in a copy here so that each loop over defocus vals
 	// have a copy to work with. Otherwise this will not exist on the second loop
 	d_input_image.ConvertToHalfPrecision(false);
+	d_padded_reference.ConvertToHalfPrecision(false);
 
 	cudaErr(cudaMalloc((void **)&my_peaks, sizeof(Peaks)*d_input_image.real_memory_allocated));
 	cudaErr(cudaMallocManaged((void **)&my_new_peaks, sizeof(Peaks)));
@@ -264,8 +265,8 @@ void TemplateMatchingCore::RunInnerLoop(Image &projection_filter, float c_pixel,
 //			}
 //			else
 //			{
-//				this->MipPixelWise(d_padded_reference, __float2half_rn(current_psi) , __float2half_rn(global_euler_search.list_of_search_parameters[current_search_position][1]),
-//																					  __float2half_rn(global_euler_search.list_of_search_parameters[current_search_position][0]));
+				this->MipPixelWise(d_padded_reference, __float2half_rn(current_psi) , __float2half_rn(global_euler_search.list_of_search_parameters[current_search_position][1]),
+																					  __float2half_rn(global_euler_search.list_of_search_parameters[current_search_position][0]));
 	//			this->MipPixelWise(d_padded_reference, float(current_psi) , float(global_euler_search.list_of_search_parameters[current_search_position][1]),
 	//																			 	 float(global_euler_search.list_of_search_parameters[current_search_position][0]));
 //				this->SumPixelWise(d_padded_reference);
@@ -422,12 +423,12 @@ void TemplateMatchingCore::MipPixelWise(GpuImage &image, __half psi, __half thet
 	image.ReturnLaunchParamtersLimitSMs(64,512);
 
 
-	MipPixelWiseKernel<< <image.gridDims, image.threadsPerBlock,0,cudaStreamPerThread>> >((cufftReal *)image.real_values_gpu, my_peaks,(int) image.real_memory_allocated - MIP_PIXELWISE_UNROLL + 1, psi,theta, phi, my_stats);
+	MipPixelWiseKernel<< <image.gridDims, image.threadsPerBlock,0,cudaStreamPerThread>> >((__half *)image.real_values_16f, my_peaks,(int) image.real_memory_allocated - MIP_PIXELWISE_UNROLL + 1, psi,theta, phi, my_stats);
 	checkErrorsAndTimingWithSynchronization(cudaStreamPerThread);
 
 }
 
-__global__ void MipPixelWiseKernel(const cufftReal*  correlation_output, Peaks* my_peaks, const int  numel,
+__global__ void MipPixelWiseKernel(const __half* correlation_output, Peaks* my_peaks, const int  numel,
 									__half psi, __half theta, __half phi, Stats* my_stats)
 {
 
@@ -437,22 +438,22 @@ __global__ void MipPixelWiseKernel(const cufftReal*  correlation_output, Peaks* 
     {
 
 //    	my_stats[i].sq_sum += __float2half_rn(1000.0f*correlation_output[i]*correlation_output[i]);
-		const __half half_val = __float2half_rn(correlation_output[i]);
+//		const __half half_val = __float2half_rn(correlation_output[i]);
 //		const float val = correlation_output[i];
 //    	my_stats[i].sum += val;
 //    	my_stats[i].sq_sum += val*val;
-    	my_stats[i].sum = __hadd(my_stats[i].sum, half_val);
-    	my_stats[i].sq_sum = __hfma(__half(1000.)*half_val,half_val,my_stats[i].sq_sum);
+    	my_stats[i].sum = __hadd(my_stats[i].sum, correlation_output[i]);
+    	my_stats[i].sq_sum = __hfma(__half(1000.)*correlation_output[i],correlation_output[i],my_stats[i].sq_sum);
 //    	tmp_peak = my_peaks[i];
 //		const __half half_val = __float2half_rn(val);
 
 //			tmp_peak.psi = psi;
 //			tmp_peak.theta = theta;
 //			tmp_peak.phi = phi;
-			if (  half_val > my_peaks[i].mip )
+			if (  correlation_output[i] > my_peaks[i].mip )
 			{
 //				tmp_peak.mip = half_val;
-				my_peaks[i].mip = half_val;
+				my_peaks[i].mip = correlation_output[i];
 				my_peaks[i].psi = psi;
 				my_peaks[i].theta = theta;
 				my_peaks[i].phi = phi;

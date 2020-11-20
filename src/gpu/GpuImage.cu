@@ -61,34 +61,12 @@ __device__ cufftCallbackStoreC d_scaleFFTAndStorePtr = CB_scaleFFTAndStore;
 
 __device__ void CB_mipCCGAndStore(void* dataOut, size_t offset, cufftReal element, void* callerInfo, void* sharedPtr);
 
-typedef struct _CB_mipCCGAndStore_params
-{
-	Peaks* peaks;
-	Stats* stats;
-	Peaks* new_peaks;
-
-} CB_mipCCGAndStore_params;
 
 __device__ void CB_mipCCGAndStore(void* dataOut, size_t offset, cufftReal element, void* callerInfo, void* sharedPtr)
 {
 
-	CB_mipCCGAndStore_params* my_params = (CB_mipCCGAndStore_params *)callerInfo;
-	((cufftReal *)dataOut)[offset] = (cufftReal)element;
-
-	const __half half_val = __float2half_rn(element);
-	my_params->stats[offset].sq_sum =  __hfma(__half(1000.)*half_val,half_val,my_params->stats[offset].sq_sum);
-
-	my_params->stats[offset].sum = __hadd(my_params->stats[offset].sum, half_val);
-
-	if (  half_val > my_params->peaks[offset].mip )
-	{
-//				tmp_peak.mip = half_val;
-		my_params->peaks[offset].mip = half_val;
-		my_params->peaks[offset].psi = my_params->new_peaks[0].psi;
-		my_params->peaks[offset].theta = my_params->new_peaks[0].theta;
-		my_params->peaks[offset].phi = my_params->new_peaks[0].phi;
-	}
-
+//	(__half *)dataOut[offset] = __float2half(element);
+	reinterpret_cast<__half*>(dataOut)[offset] = __float2half(element);
 //
 }
 __device__ cufftCallbackStoreR d_mipCCGAndStorePtr = CB_mipCCGAndStore;
@@ -1587,6 +1565,7 @@ template < typename T > void GpuImage::BackwardFFTAfterComplexConjMul(T* image_t
 	{
 		cufftCallbackStoreC h_complexConjMulLoad;
 		cufftCallbackStoreR h_mipCCGStore;
+
 		CB_complexConjMulLoad_params<T>* d_params;
 		CB_complexConjMulLoad_params<T> h_params;
 		h_params.scale = ft_normalization_factor*ft_normalization_factor;
@@ -1601,22 +1580,15 @@ template < typename T > void GpuImage::BackwardFFTAfterComplexConjMul(T* image_t
 		{
 			cudaErr(cudaMemcpyFromSymbol(&h_complexConjMulLoad,d_complexConjMulLoad_32f, sizeof(h_complexConjMulLoad)));
 		}
-		CB_mipCCGAndStore_params* d_params_store;
-		CB_mipCCGAndStore_params  h_params_store;
-		cudaErr(cudaMalloc((void **)&d_params_store,sizeof(CB_mipCCGAndStore_params)));
-
-		h_params_store.peaks = my_peaks;
-		h_params_store.stats = my_stats;
-		h_params_store.new_peaks = my_new_peaks;
-
-		// Copy host memory to device
-		checkCudaErrors(cudaMemcpyAsync(d_params_store, &h_params_store, sizeof(CB_mipCCGAndStore_params),
-		                               cudaMemcpyHostToDevice, cudaStreamPerThread));
 
 
+
+		cudaErr(cudaMemcpyFromSymbol(&h_mipCCGStore,d_mipCCGAndStorePtr, sizeof(h_mipCCGStore)));
 		cudaErr(cudaStreamSynchronize(cudaStreamPerThread));
+
 		cudaErr(cufftXtSetCallback(cuda_plan_inverse, (void **)&h_complexConjMulLoad, CUFFT_CB_LD_COMPLEX, (void **)&d_params));
-		cudaErr(cufftXtSetCallback(cuda_plan_inverse, (void **)&h_mipCCGStore, CUFFT_CB_ST_REAL, (void **)&d_params_store));
+		void** fake_params;
+		cudaErr(cufftXtSetCallback(cuda_plan_inverse, (void **)&h_mipCCGStore, CUFFT_CB_ST_REAL, fake_params));
 
 		MyPrintWithDetails("");
 //		d_complexConjMulLoad;
@@ -1626,7 +1598,7 @@ template < typename T > void GpuImage::BackwardFFTAfterComplexConjMul(T* image_t
 	//  BufferInit(b_image);
 	//  cudaErr(cufftExecC2R(this->cuda_plan_inverse, (cufftComplex*)image_buffer->complex_values, (cufftReal*)real_values_gpu));
 
-	cudaErr(cufftExecC2R(this->cuda_plan_inverse, (cufftComplex*)complex_values_gpu, (cufftReal*)real_values_gpu));
+	cudaErr(cufftExecC2R(this->cuda_plan_inverse, (cufftComplex*)complex_values_gpu, reinterpret_cast<cufftReal*>(real_values_16f)));
 
 	is_in_real_space = true;
 	npp_ROI = npp_ROI_real_space;
@@ -2208,6 +2180,8 @@ void GpuImage::Deallocate()
 
   if (is_fft_planned)
   {
+
+	is_set_complexConjMulLoad = false;
     cudaErr(cufftDestroy(cuda_plan_inverse));
     cudaErr(cufftDestroy(cuda_plan_forward));
     is_fft_planned = false;
@@ -2238,7 +2212,8 @@ void GpuImage::Deallocate()
 void GpuImage::ConvertToHalfPrecision(bool deallocate_single_precision)
 {
 
-	// FIXME when adding real space complex images
+	// FIXME when adding real space complex images.
+	// FIXME should probably be called COPYorConvert
 	MyAssertTrue( is_in_memory_gpu, "Image is in not on the GPU!");
 
 	BufferInit(b_16f);

@@ -35,8 +35,8 @@ bool GpuUtilTest::DoCalculation()
   wxPrintf("GpuUtilTest is running!\n");
 
 //  this->createImageAddOne();
-  int nThreads = 4;
-  int nGPUs = 2;
+  int nThreads = 2;
+  int nGPUs = 1;
   this->TemplateMatchingStandalone(nThreads, nGPUs);
 
   int gpuID = 0;
