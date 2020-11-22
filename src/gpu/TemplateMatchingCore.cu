@@ -10,6 +10,8 @@ __global__ void MipPixelWiseKernel(__half* correlation_output, Peaks* my_peaks, 
                                    __half psi, __half theta, __half phi, Stats* my_stats);
 
 
+
+
 TemplateMatchingCore::TemplateMatchingCore() 
 {
 
@@ -163,6 +165,7 @@ void TemplateMatchingCore::RunInnerLoop(Image &projection_filter, float c_pixel,
 	// have a copy to work with. Otherwise this will not exist on the second loop
 	d_input_image.ConvertToHalfPrecision(false);
 	d_padded_reference.ConvertToHalfPrecision(false);
+
 
 	cudaErr(cudaMalloc((void **)&my_peaks, sizeof(Peaks)*d_input_image.real_memory_allocated));
 	cudaErr(cudaMallocManaged((void **)&my_new_peaks, sizeof(Peaks)));
@@ -421,7 +424,7 @@ void TemplateMatchingCore::MipPixelWise( __half psi, __half theta, __half phi)
 //	int N = 64;
 
 	// N*
-	d_padded_reference.ReturnLaunchParamtersLimitSMs(64,512);
+	d_padded_reference.ReturnLaunchParamtersLimitSMs(2.f,512);
 
 
 	MipPixelWiseKernel<< <d_padded_reference.gridDims, d_padded_reference.threadsPerBlock,0,cudaStreamPerThread>> >((__half *)d_padded_reference.real_values_16f, my_peaks,(int)d_padded_reference.real_memory_allocated , psi,theta, phi, my_stats);
@@ -443,15 +446,16 @@ __global__ void MipPixelWiseKernel(__half* correlation_output, Peaks* my_peaks, 
 //		const float val = correlation_output[i];
 //    	my_stats[i].sum += val;
 //    	my_stats[i].sq_sum += val*val;
-    	my_stats[i].sum = __hadd(my_stats[i].sum, correlation_output[i]);
-    	my_stats[i].sq_sum = __hfma(__half(1000.)*correlation_output[i],correlation_output[i],my_stats[i].sq_sum);
+    	const __half half_val = correlation_output[i];
+    	my_stats[i].sum = __hadd(my_stats[i].sum, half_val);
+    	my_stats[i].sq_sum = __hfma(__half(1000.)*half_val,half_val,my_stats[i].sq_sum);
 //    	tmp_peak = my_peaks[i];
 //		const __half half_val = __float2half_rn(val);
 
 //			tmp_peak.psi = psi;
 //			tmp_peak.theta = theta;
 //			tmp_peak.phi = phi;
-			if (  correlation_output[i] > my_peaks[i].mip )
+			if (  half_val > my_peaks[i].mip )
 			{
 //				tmp_peak.mip = half_val;
 				my_peaks[i].mip = correlation_output[i];

@@ -42,7 +42,7 @@ bool GpuUtilTest::DoCalculation()
   int gpuID = 0;
   wxPrintf("I made it here\n");
 
-  
+
 
 }	
 
@@ -225,8 +225,11 @@ void GpuUtilTest::TemplateMatchingStandalone(int nThreads, int nGPUs)
 			int size_i = 0;
 			int defocus_i = 0;
 
+			StopWatch gpuTimer;
 
+			if (tIDX == 0) gpuTimer.start("loop");
 			GPU[tIDX].RunInnerLoop(projection_filter, size_i, defocus_i, tIDX, current_correlation_position);
+			if (tIDX == 0) { gpuTimer.lap("loop"); gpuTimer.print_times(); }
 
 			long* histogram_data = new long[GPU[tIDX].histogram.histogram_n_bins];
 			for (int iBin = 0; iBin < GPU[tIDX].histogram.histogram_n_bins; iBin++)
