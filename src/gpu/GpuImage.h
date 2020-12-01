@@ -8,21 +8,7 @@
 #ifndef GPUIMAGE_H_
 #define GPUIMAGE_H_
 
-typedef
-	struct __align__(4) _Stats{
-__half sum;
-__half sq_sum;
-} Stats;
 
-typedef
-struct __align__(8) _Peaks {
-	// This should be 128 byte words, so good for read access?
-	__half mip;
-	__half psi;
-	__half theta;
-	__half phi;
-
-} Peaks;
 
 class GpuImage {
 

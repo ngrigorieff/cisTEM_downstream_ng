@@ -135,13 +135,13 @@ public:
 
 	MyApp *parent_pointer;
 
-	Stats* my_stats;
-	Peaks* my_peaks;
-	Peaks* my_new_peaks; // for passing euler angles to the callback
+	__half2* my_stats;
+	__half2* my_peaks;
+	__half2* my_new_peaks; // for passing euler angles to the callback
 	void SumPixelWise(GpuImage &image);
     void MipPixelWise( __half psi, __half theta, __half phi);
-	void MipToImage(const Peaks* my_peaks, GpuImage &mip, GpuImage &psi, GpuImage &theta, GpuImage &phi);
-	void AccumulateSums(Stats* my_stats, GpuImage &sum, GpuImage &sq_sum);
+	void MipToImage();
+	void AccumulateSums(__half2* my_stats, GpuImage &sum, GpuImage &sq_sum);
 
 
 	void Init(MyApp *parent_pointer,

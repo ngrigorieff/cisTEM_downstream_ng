@@ -70,8 +70,8 @@ __device__ void CB_mipCCGAndStore(void* dataOut, size_t offset, cufftReal elemen
 	__half* data_out_half = (__half*)callerInfo;
 //	data_out_half[offset] = __float2half(element);
 //	((cufftReal *)dataOut)[offset] = element;
-//
-   __stcg( &data_out_half[offset], __float2half(element) );
+
+   __stcs( &data_out_half[offset], __float2half(element) );
 //	((__half *)dataOut)[offset] = __float2half(element);
 
 //	)_(dataOut)[offset] = __float2half(element);

@@ -35,7 +35,7 @@ bool GpuUtilTest::DoCalculation()
   wxPrintf("GpuUtilTest is running!\n");
 
 //  this->createImageAddOne();
-  int nThreads = 2;
+  int nThreads = 3;
   int nGPUs = 1;
   this->TemplateMatchingStandalone(nThreads, nGPUs);
 
@@ -239,9 +239,12 @@ void GpuUtilTest::TemplateMatchingStandalone(int nThreads, int nGPUs)
 			GPU[tIDX].histogram.CopyToHostAndAdd(histogram_data);
 			std::string fileNameOUT4 = "/tmp/tmpMip" + std::to_string(tIDX) + ".mrc";
 			max_intensity_projection.QuickAndDirtyWriteSlice(fileNameOUT4,1,true,1.5);
-
+			GPU[tIDX].d_best_psi.QuickAndDirtyWriteSlices("psi.mrc", 1, 1);
+			GPU[tIDX].d_sum1.QuickAndDirtyWriteSlices("sum.mrc", 1, 1);
+			GPU[tIDX].d_sumSq1.QuickAndDirtyWriteSlices("sumSq.mrc", 1, 1);
+			GPU[tIDX].d_sum2.QuickAndDirtyWriteSlices("sum2.mrc", 1, 1);
+			GPU[tIDX].d_sumSq2.QuickAndDirtyWriteSlices("sumSq2.mrc", 1, 1);
 			wxPrintf("\n\n\tTimings: Overall: %s\n",(wxDateTime::Now()-overall_start).Format());
-
 
     } // end of omp block
 }

@@ -179,6 +179,7 @@ void MatchTemplateApp::DoInteractiveUserInput()
 	wxString	my_symmetry = "C1";
 	float 		in_plane_angular_step = 0;
 	bool 		use_gpu_input = false;
+	int			max_threads = 1; // Only used for the GPU code
 
 	UserInput *my_input = new UserInput("MatchTemplate", 1.00);
 
@@ -217,6 +218,7 @@ void MatchTemplateApp::DoInteractiveUserInput()
 //	my_symmetry = my_input->GetSymmetryFromUser("Template symmetry", "The symmetry of the template reconstruction", "C1");
 #ifdef ENABLEGPU
 	use_gpu_input = my_input->GetYesNoFromUser("Use GPU", "Offload expensive calcs to GPU","No");
+	max_threads = my_input->GetIntFromUser("Max. threads to use for calculation", "when threading, what is the max threads to run", "1", 1);
 #endif
 
 
@@ -232,7 +234,7 @@ void MatchTemplateApp::DoInteractiveUserInput()
 	delete my_input;
 
 
-	my_current_job.ManualSetArguments("ttffffffffffifffffbfftttttttttftiiiitttfb",	input_search_images.ToUTF8().data(),
+	my_current_job.ManualSetArguments("ttffffffffffifffffbfftttttttttftiiiitttfbi",	input_search_images.ToUTF8().data(),
 															input_reconstruction.ToUTF8().data(),
 															pixel_size,
 															voltage_kV,
@@ -272,7 +274,8 @@ void MatchTemplateApp::DoInteractiveUserInput()
 															directory_for_results.ToUTF8().data(),
 															result_filename.ToUTF8().data(),
 															min_peak_radius,
-															use_gpu_input);
+															use_gpu_input,
+															max_threads);
 }
 
 // override the do calculation method which will be what is actually run..
@@ -381,6 +384,21 @@ bool MatchTemplateApp::DoCalculation()
 	wxString	result_output_filename = my_current_job.arguments[38].ReturnStringArgument();
 	float		min_peak_radius = my_current_job.arguments[39].ReturnFloatArgument();
 	bool		use_gpu   = my_current_job.arguments[40].ReturnBoolArgument();
+	int			max_threads =  my_current_job.arguments[41].ReturnIntegerArgument();
+
+	if (is_running_locally == false) max_threads = number_of_threads_requested_on_command_line; // OVERRIDE FOR THE GUI, AS IT HAS TO BE SET ON THE COMMAND LINE...
+
+	if (max_threads > 1)
+	{
+		MyAssertTrue(use_gpu, "Using more than one thread only works in the GPU implementation\n.");
+	}
+	else
+	{
+		if(use_gpu)
+		{
+			wxPrintf("Warning, you are only using one thread on the GPU. Suggested minimum is 2. Check compute saturation using nvidia-smi -l 1\n");
+		}
+	}
 
 
 	/*wxPrintf("input image = %s\n", input_search_images_filename);
@@ -775,18 +793,17 @@ bool MatchTemplateApp::DoCalculation()
 
 	// These vars are only needed in the GPU code, but also need to be set out here to compile.
 	bool first_gpu_loop = true;
-	int nThreads = 2;
 	int nGPUs = 1;
 	int nJobs = last_search_position-first_search_position+1;
-	if (use_gpu && nThreads > nJobs)
+	if (use_gpu && max_threads > nJobs)
 	{
-		wxPrintf("\n\tWarning, you request more threads (%d) than there are search positions (%d)\n", nThreads, nJobs);
-		nThreads = nJobs;
+		wxPrintf("\n\tWarning, you request more threads (%d) than there are search positions (%d)\n", max_threads, nJobs);
+		max_threads = nJobs;
 	}
 
 	int minPos = first_search_position;
 	int maxPos = last_search_position;
-	int incPos = (nJobs) / (nThreads);
+	int incPos = (nJobs) / (max_threads);
 
 //	wxPrintf("First last and inc %d, %d, %d\n", minPos, maxPos, incPos);
 #ifdef ENABLEGPU
@@ -796,11 +813,11 @@ bool MatchTemplateApp::DoCalculation()
 
 	if (use_gpu)
 	{
-		total_correlation_positions_per_thread = total_correlation_positions / nThreads;
+		total_correlation_positions_per_thread = total_correlation_positions / max_threads;
 
 #ifdef ENABLEGPU
 //	checkCudaErrors(cudaGetDeviceCount(&nGPUs));
-	GPU = new TemplateMatchingCore[nThreads];
+	GPU = new TemplateMatchingCore[max_threads];
 	gpuDev.Init(nGPUs);
 
 //	wxPrintf("Host: %s is running\nnThreads: %d\nnGPUs: %d\n:nSearchPos %d \n",hostNameBuffer,nThreads, nGPUs, maxPos);
@@ -832,7 +849,7 @@ bool MatchTemplateApp::DoCalculation()
 		{
 #ifdef ENABLEGPU
 
-	#pragma omp parallel num_threads(nThreads)
+	#pragma omp parallel num_threads(max_threads)
 	{
 		int tIDX = ReturnThreadNumberOfCurrentThread();
 		gpuDev.SetGpu(tIDX);
@@ -843,7 +860,7 @@ bool MatchTemplateApp::DoCalculation()
 				int t_first_search_position = first_search_position + (tIDX*incPos);
 				int t_last_search_position = first_search_position + (incPos-1) + (tIDX*incPos);
 
-				if (tIDX == (nThreads - 1)) t_last_search_position = maxPos;
+				if (tIDX == (max_threads - 1)) t_last_search_position = maxPos;
 
 				GPU[tIDX].Init(this, template_reconstruction, input_image, current_projection,
 								pixel_size_search_range, pixel_size_step, pixel_size,
@@ -887,7 +904,7 @@ bool MatchTemplateApp::DoCalculation()
 //			wxPrintf("\n\n\t\tsizeI defI %d %d\n\n\n", size_i, defocus_i);
 
 
-			#pragma omp parallel num_threads(nThreads)
+			#pragma omp parallel num_threads(max_threads)
 			{
 				int tIDX = ReturnThreadNumberOfCurrentThread();
 				gpuDev.SetGpu(tIDX);
