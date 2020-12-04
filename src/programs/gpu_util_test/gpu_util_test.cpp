@@ -868,21 +868,27 @@ void GpuUtilTest::FFTwithRotation()
 	unsigned int n_bits_in_final_term = (unsigned int)(std::log2(float(n_terms)));
 	const unsigned int n_bits = sizeof(int)*8;
 	const unsigned int n_butterflies = 2;
-	unsigned int n,r,x,i,idx;
+	unsigned int r,x,i,idx;
+	// Each (nth) radix 2 butterfly results in the least significant bit going to the
+	// (nth) most significant in log2(n_terms) bits. A full FFT will result in a full
+	// bit reversal. Intermediate results are calculated as follows:
 	for (idx=0; idx< n_terms; idx++)
 	{
 		r = 0;
 		x = idx;
-		n = idx;
-	    for(i = 0; i < n_bits; i++)
+
+		// Fill in r from the least significant, marching to the most significant. We only need the
+		// n_butterflies least significant to be flipped.
+	    for(i = 0; i < n_butterflies; i++)
 	    {
+	    	// I don't think the () are necessary in c++
 	        r = r << 1 | (x & 1);
 	        x >>= 1;
 	    }
-	    n =  n >> n_butterflies;
-	    r = r >> n_bits - n_butterflies;
-	    r = r << n_bits_in_final_term - n_butterflies;
-	    wxPrintf("bit reversed from r a %d %d %d %d\n", idx, r,n,r+n);
+	    x=idx;
+	    r <<= n_bits_in_final_term - n_butterflies;
+	    r += (x >> n_butterflies);
+	    wxPrintf("bit reversed from r a %d %d\n", idx, r);
 	}
 
 
