@@ -38,8 +38,8 @@ bool GpuUtilTest::DoCalculation()
   int nThreads = 1;
   int nGPUs = 1;
 //  this->TemplateMatchingStandalone(nThreads, nGPUs);
-  this->DFTbyDecomp();
-//  this->FFTwithRotation();
+ // this->DFTbyDecomp();
+ this->FFTwithRotation();
   int gpuID = 0;
   wxPrintf("I made it here\n");
 
@@ -863,6 +863,32 @@ MyPrintWithDetails("");
 void GpuUtilTest::FFTwithRotation()
 {
 
+
+	unsigned int n_terms = 16;
+	unsigned int n_bits_in_final_term = (unsigned int)(std::log2(float(n_terms)));
+	const unsigned int n_bits = sizeof(int)*8;
+	const unsigned int n_butterflies = 2;
+	unsigned int n,r,x,i,idx;
+	for (idx=0; idx< n_terms; idx++)
+	{
+		r = 0;
+		x = idx;
+		n = idx;
+	    for(i = 0; i < n_bits; i++)
+	    {
+	        r = r << 1 | (x & 1);
+	        x >>= 1;
+	    }
+	    n =  n >> n_butterflies;
+	    r = r >> n_bits - n_butterflies;
+	    r = r << n_bits_in_final_term - n_butterflies;
+	    wxPrintf("bit reversed from r a %d %d %d %d\n", idx, r,n,r+n);
+	}
+
+
+
+
+	exit(-1);
 	DFTbyDecomposition DFT;
 	StopWatch timer;
 	bool do_rotation = true;
