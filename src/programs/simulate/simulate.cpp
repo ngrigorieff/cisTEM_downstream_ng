@@ -465,7 +465,7 @@ class SimulateApp : public MyApp
 
 	bool ONLY_SAVE_SUMS = true;
 	bool DO_NOT_RANDMOIZE_ANGLES = false;
-	bool MODIFY_ONLY_SIGNAL = true;
+	int MODIFY_ONLY_SIGNAL = 0;
 	// To add error to the global alignment
 	float 	tilt_axis = 0; // degrees from Y-axis FIXME thickness calc, water padding, a few others are only valid for 0* tilt axis.
 	float 	in_plane_sigma = 2; // spread in-plane angles based on neighbors
@@ -698,7 +698,8 @@ void SimulateApp::AddCommandLineOptions()
 	command_line_parser.AddLongSwitch("calc-holes-only", "Use protein envelope, but don't add it in (holes only)? default is no");// This should calculate the atoms so the water is properly excluded, but not include these in the propagation. TODO checkme
 //	command_line_parser.AddLongSwitch("save-detector-wavefunction", "Save the detector wave function directly? Skip Poisson draw, default is no"); // Skip the poisson draw - must be true (this is gets over-ridden) if DO_PHASE_PLATE is true
 	command_line_parser.AddLongSwitch("skip-random-angles", "Skip randomizing angles in a particle stack? default is no"); //
-	command_line_parser.AddLongSwitch("only-modify-signal-3d", "When applying the cummulative exposure filter to the 3d reference, only modify the signal (reduce exposure filter by 1 - (1-x)/(1+x)");
+//	command_line_parser.AddLongSwitch("only-modify-signal-3d", "When applying the cummulative exposure filter to the 3d reference, only modify the signal (reduce exposure filter by 1 - (1-x)/(1+x)");
+	command_line_parser.AddOption("","only-modify-signal-3d", "When applying the cummulative exposure filter to the 3d reference, only modify the signal (reduce exposure filter by 1 - (1-x)/(1+x)",wxCMD_LINE_VAL_NUMBER);
 
 
 	command_line_parser.AddLongSwitch("skip-coherence-envelope","Apply spatial coherence envelope? default is no"); // These do nothing~! FIXME
@@ -790,7 +791,7 @@ void SimulateApp::DoInteractiveUserInput()
 	if (command_line_parser.Found("skip-tilted-propagation")) DO_BEAM_TILT_FULL = false;
 	if (command_line_parser.Found("save-frames")) ONLY_SAVE_SUMS = false;
 	if (command_line_parser.Found("skip-random-angles")) DO_NOT_RANDMOIZE_ANGLES = true;
-	if (command_line_parser.Found("only-modify-signal-3d")) MODIFY_ONLY_SIGNAL = true;
+	if (command_line_parser.Found("only-modify-signal-3d", &temp_long)) {  MODIFY_ONLY_SIGNAL = (int)temp_long; }
 
 	if (command_line_parser.Found("max_number_of_noise_particles", &temp_long)) { max_number_of_noise_particles = (int)temp_long;}
 	if (command_line_parser.Found("noise_particle_radius_as_mutliple_of_particle_radius", &temp_double)) { noise_particle_radius_as_mutliple_of_particle_radius = (float)temp_double;}
@@ -868,6 +869,8 @@ void SimulateApp::DoInteractiveUserInput()
 //		 {
 //			 //do nothing
 //		 }
+		 this->dose_per_frame			= my_input->GetFloatFromUser("electrons/Ang^2 in a frame at the specimen","","1.0",0.05,20.0);
+		 this->number_of_frames			= my_input->GetFloatFromUser("number of frames per movie (micrograph or tilt)","","30",1.0,1000.0);
 
 	 }
 	 else
@@ -2061,10 +2064,10 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 
 
 					// Normally the pre-exposure is added to each frame. Here it is taken to be the total exposure.
-					my_electron_dose.CalculateCummulativeDoseFilterAs1DArray(&Potential_3d, dose_filter,std::max(this->pre_exposure,1.0f));
+					my_electron_dose.CalculateCummulativeDoseFilterAs1DArray(&Potential_3d, dose_filter,std::max(this->pre_exposure,1.0f), std::max(this->number_of_frames*this->dose_per_frame,1.0f));
 
 
-					if (MODIFY_ONLY_SIGNAL)
+					if (MODIFY_ONLY_SIGNAL==1)
 					{
 						for (long pixel_counter = 0; pixel_counter < Potential_3d.real_memory_allocated / 2; pixel_counter++)
 						{
@@ -2075,6 +2078,15 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 
 						}
 					}
+					else if (MODIFY_ONLY_SIGNAL==2)
+						{
+							for (long pixel_counter = 0; pixel_counter < Potential_3d.real_memory_allocated / 2; pixel_counter++)
+							{
+
+									Potential_3d.complex_values[pixel_counter] *= 	sqrtf(dose_filter[pixel_counter]);
+
+							}
+						}
 					else
 					{
 						for (long pixel_counter = 0; pixel_counter < Potential_3d.real_memory_allocated / 2; pixel_counter++)
