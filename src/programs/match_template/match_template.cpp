@@ -707,8 +707,10 @@ bool MatchTemplateApp::DoCalculation()
 	wxDateTime my_time_in;
 
 	// remove outliers
+	input_image.ReplaceOutliersWithMean(13.0f); // This isn't valid for movie frames with poisson dist - can delete every non zero pixel
+//	input_image.ReplaceOutliersWithMean(5.0f);
+//	input_image.ReplacePoissonOutliersWithMode(5.0f);
 
-	input_image.ReplaceOutliersWithMean(5.0f);
 	input_image.ForwardFFT();
 	input_image.SwapRealSpaceQuadrants();
 
@@ -1837,10 +1839,9 @@ void MatchTemplateApp::MasterHandleProgramDefinedResult(float *result_array, lon
 
 		// Calculate the result image, and keep the peak info to send back...
 
-		float min_peak_radius = powf(current_job_package.jobs[(aggregated_results[array_location].image_number - 1) * number_of_expected_results].arguments[39].ReturnFloatArgument(), 2);
-		// TODO, I think this is in angstrom and should be in pixels.
-		int   min_search_radius = myroundint(current_job_package.jobs[(aggregated_results[array_location].image_number - 1) * number_of_expected_results].arguments[39].ReturnFloatArgument() /
-											 current_job_package.jobs[(aggregated_results[array_location].image_number - 1) * number_of_expected_results].arguments[2].ReturnFloatArgument()) / 2 + 1;
+		int   min_peak_radius = current_job_package.jobs[(aggregated_results[array_location].image_number - 1) * number_of_expected_results].arguments[39].ReturnFloatArgument();
+		float min_peak_radius_squared = powf(float(min_peak_radius), 2);
+
 
 		result_image.Allocate(scaled_mip.logical_x_dimension, scaled_mip.logical_y_dimension, 1);
 		result_image.SetToConstant(0.0f);
@@ -1866,7 +1867,7 @@ void MatchTemplateApp::MasterHandleProgramDefinedResult(float *result_array, lon
 			nTrys++;
 //			wxPrintf("Trying the %ld'th peak\n",nTrys);
 			// FIXME min-distance from edges would be better to set dynamically.
-			current_peak = scaled_mip.FindPeakWithIntegerCoordinates(0.0, FLT_MAX, 50);
+			current_peak = scaled_mip.FindPeakWithIntegerCoordinates(0.0, FLT_MAX, input_reconstruction.logical_x_dimension / 2 + 1);
 			if (current_peak.value < expected_threshold) break;
 
 			// ok we have peak..
@@ -1887,14 +1888,14 @@ void MatchTemplateApp::MasterHandleProgramDefinedResult(float *result_array, lon
 
 //			wxPrintf("Peak = %f, %f, %f : %f\n", current_peak.x, current_peak.y, current_peak.value);
 
-			for ( j = current_peak.y - min_search_radius; j < current_peak.y + min_search_radius; j ++ )
+			for ( j = std::max(myroundint(current_peak.y) - min_peak_radius, 0); j < std::min(myroundint(current_peak.y) + min_peak_radius, scaled_mip.logical_y_dimension) ; j ++ )
 			{
-				sq_dist_y = j-current_peak.y;
+				sq_dist_y = float(j)-current_peak.y;
 				sq_dist_y *= sq_dist_y;
 
-				for ( i = current_peak.x - min_search_radius; i < current_peak.x + min_search_radius; i ++ )
+				for ( i = std::max(myroundint(current_peak.x) - min_peak_radius, 0); i < std::min(myroundint(current_peak.x) + min_peak_radius, scaled_mip.logical_x_dimension) ; i ++ )
 				{
-					sq_dist_x = i-current_peak.x;
+					sq_dist_x = float(i)-current_peak.x;
 					sq_dist_x *= sq_dist_x;
 					address = phi_image.ReturnReal1DAddressFromPhysicalCoord(i,j,0);
 
@@ -1915,7 +1916,7 @@ void MatchTemplateApp::MasterHandleProgramDefinedResult(float *result_array, lon
 
 					}
 
-					if ( sq_dist_x + sq_dist_y <= min_peak_radius )
+					if ( sq_dist_x + sq_dist_y <= min_peak_radius_squared )
 					{
 						scaled_mip.real_values[address] = -FLT_MAX;
 					}
@@ -1961,11 +1962,11 @@ void MatchTemplateApp::MasterHandleProgramDefinedResult(float *result_array, lon
 			}
 			else
 			{
-				SendError("More than 1000 peaks above threshold were found. Limiting results to 1000 peaks.\n");
-				break;
-//				SendError("Something seems to have gone wrong, more than 1000 _peaks_ were found\n");
-//				scaled_mip.QuickAndDirtyWriteSlice("/tmp/scaled_mip_1000.mrc", 1);
-//				exit(-1);
+//				SendError("More than 1000 peaks above threshold were found. Limiting results to 1000 peaks.\n");
+//				break;
+				wxPrintf("Something seems to have gone wrong, more than 1000 _peaks_ were found\n");
+				scaled_mip.QuickAndDirtyWriteSlice("/tmp/scaled_mip_1000.mrc", 1);
+				exit(0);
 			}
 
 		}

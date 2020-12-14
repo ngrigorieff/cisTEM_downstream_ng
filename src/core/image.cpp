@@ -1004,6 +1004,60 @@ void Image::ReplaceOutliersWithMean(float maximum_n_sigmas)
 
 }
 
+// Similar to ReplaceOutliersWith mean, retaining the same semantics, which the input maximum_n_sigmas
+// are used in a way that allows the caller to be thinking in-terms of a significance level based on a gaussian
+// distribution. For a very sparse array from a counting detecor, where generally mean=var<0.3 this can result in all counts
+// being set to zero
+void Image::ReplacePoissonOutliersWithMode(float maximum_n_sigmas)
+{
+	MyDebugAssertTrue(is_in_real_space,"Image must be in real space");
+
+	// Translate the input sigma to a percentage from a std normal dist
+	float percentage = std::erff(.707107f * maximum_n_sigmas);
+
+	// Now get the mean and variance of the distribution, check they aren't too different, else this isn't Poisson
+	float variance 	= 	ReturnVarianceOfRealValues();
+	float mean		=	ReturnAverageOfRealValues();
+	MyAssertTrue(fabsf((variance - mean)/variance) < 0.5f,"The relative error (mean-variance)/variance is > 0.5: your distribution is not Poisson!");
+
+	// A test on the kurtosis to see if that is a good saftey check to rever to the regular gaussian method
+	Image buffer;
+	buffer.CopyFrom(this);
+	buffer.AddMultiplyConstant(-mean, 1.0f/sqrtf(variance));
+	buffer.MultiplyPixelWise(buffer); // square
+	buffer.MultiplyPixelWise(buffer); // fourth power
+	float kurtosis = buffer.ReturnAverageOfRealValues();
+
+	// Find the value that is > the Poisson cdf based on the percentage "translated" from the Gaussian cutoff
+	float max = 0.f;
+	long factorial;
+	long f;
+	for (int k = 0; k < 100; k++)
+	{
+		factorial = k;
+		f = k;
+		if (k > 1) { while (f > 1) { factorial*=(f-1); f-- ;} ;}
+		else factorial = 1;
+
+		max += powf(mean, k) * expf(-mean) / float(factorial);
+		if (max > percentage) break;
+
+	}
+
+	wxPrintf("Running ReplacePoissonOutliersWithMode:\nInput max sigma %f\nPercentage %f\nMax Count %f\nVariance %f\nMean %f\nKurtosis %f\n",
+			maximum_n_sigmas, max, percentage, variance, mean, kurtosis);
+	// We're assuming the mean has not been shifted, so we just truncate the outliers to zero
+	for ( long address = 0; address < real_memory_allocated; address++ )
+	{
+		if (real_values[address] > max)
+		{
+			real_values[address] = 0.0f;
+		}
+
+	}
+
+}
+
 float Image::ReturnVarianceOfRealValues(float wanted_mask_radius, float wanted_center_x, float wanted_center_y, float wanted_center_z, bool invert_mask)
 {
 	MyDebugAssertTrue(is_in_real_space == true, "Image must be in real space");

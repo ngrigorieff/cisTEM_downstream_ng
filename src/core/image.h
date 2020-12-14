@@ -124,6 +124,7 @@ public:
 	void NormalizeSumOfSquares();
 	void ZeroFloatOutside(float wanted_mask_radius, bool invert_mask = false);
 	void ReplaceOutliersWithMean(float maximum_n_sigmas);
+	void ReplacePoissonOutliersWithMode(float maximum_n_sigmas);
 	float ReturnVarianceOfRealValues(float wanted_mask_radius = 0.0, float wanted_center_x = 0.0, float wanted_center_y = 0.0, float wanted_center_z = 0.0, bool invert_mask = false);
 	EmpiricalDistribution ReturnDistributionOfRealValues(float wanted_mask_radius = 0.0, bool outside = false, float wanted_center_x = 0.0, float wanted_center_y = 0.0, float wanted_center_z = 0.0);
 	void UpdateDistributionOfRealValues(EmpiricalDistribution *distribution_to_update, float wanted_mask_radius = 0.0, bool outside = false, float wanted_center_x = 0.0, float wanted_center_y = 0.0, float wanted_center_z = 0.0);
