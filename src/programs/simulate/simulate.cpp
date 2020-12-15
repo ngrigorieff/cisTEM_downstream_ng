@@ -1965,7 +1965,7 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 				if (iSlab == 0)
 				{
 					coords.Allocate(&Potential_3d, (PaddingStatus)solvent,true, false);
-					Potential_3d.SetToConstant(0.0);
+					Potential_3d.SetToConstant(0.0f);
 				}
 
 				if (add_mean_water_potential)
@@ -2024,6 +2024,7 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 						distance_slab.ApplyBFactor(this->bf / wanted_pixel_size_sq);
 						distance_slab.BackwardFFT();
 					}
+					wxPrintf("\n\n\t\tMultiplying distance slab by wgt %4.4e\n\n",wgt);
 
 					distance_slab.MultiplyByConstant(this->wgt);
 					scattering_slab.AddImage(&distance_slab);
@@ -2126,6 +2127,7 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 					mrc_out.SetPixelSize(this->wanted_pixel_size * this->bin3d);
 					mrc_out.CloseFile();
 					// Exit after writing the final slice for the reference. Is this the best way to do this? FIXME
+					timer.print_times();
 					exit(0);
 				}
 				continue;
@@ -3042,7 +3044,6 @@ void SimulateApp::calc_scattering_potential(const PDB * current_specimen,
 	AtomType atom_id;
 	float element_inelastic_ratio;
 	float bFactor;
-	float bPlusB[5];
 	float radius;
 	float ix(0), iy(0), iz(0);
 	float dx(0), dy(0), dz (0);
@@ -3066,11 +3067,16 @@ void SimulateApp::calc_scattering_potential(const PDB * current_specimen,
 
 
 
-
+	float bPlusB[5];
 	// TODO experiment with the scheduling. Until the specimen is consistently full, many consecutive slabs may have very little work for the assigned threads to handle.
-	#pragma omp parallel for num_threads(this->number_of_threads) private(atom_id, bFactor, bPlusB, radius, ix,iy,iz,x1,x2,y1,y2,z1,z2,indX,indY,indZ,sx,sy,sz,xDistSq,yDistSq,zDistSq,iLim,jLim,kLim, iGaussian,water_offset,atoms_values_tmp,atoms_added_idx,atoms_distances_tmp,n_atoms_added,pixel_offset,bfX,bfY,bfZ)
+	#pragma omp parallel for num_threads(this->number_of_threads) private( \
+	atom_id, bFactor, bPlusB, radius, ix,iy,iz,x1,x2,y1,y2,z1,z2,indX,indY, \
+	indZ,sx,sy,sz,dx,dy,dz,xDistSq,yDistSq,zDistSq,iLim,jLim,kLim, iGaussian, element_inelastic_ratio,		\
+	water_offset,atoms_values_tmp,atoms_added_idx,atoms_distances_tmp,n_atoms_added,pixel_offset,bfX,bfY,bfZ)
 	for (long current_atom = 0; current_atom < this->number_of_non_water_atoms; current_atom++)
 	{
+
+
 
 		n_atoms_added = 0;
 
@@ -3080,8 +3086,6 @@ void SimulateApp::calc_scattering_potential(const PDB * current_specimen,
 
 		element_inelastic_ratio = sqrtf(non_water_inelastic_scaling / sp.ReturnAtomicNumber(atom_id)); // Reimer/Ross_Messemer 1989
 		bFactor = return_bfactor(current_specimen->my_atoms.Item(current_atom).bfactor);
-
-
 
 
 		corners R;
@@ -3189,14 +3193,24 @@ void SimulateApp::calc_scattering_potential(const PDB * current_specimen,
 		} // end of loop over the neighborhood X
 
 //		wxPrintf("Possible positions added %3.3e %\n", 100.0f* (float)n_atoms_added/(float)cubic_vol);
-
+			#pragma omp critical
 			for (int iIDX = 0; iIDX < n_atoms_added-1; iIDX++)
 			{
-				#pragma omp atomic update
+//				#pragma omp atomic update
 				scattering_slab->real_values[atoms_added_idx[iIDX]] += (atoms_values_tmp[iIDX]);
 				// This is the value for 100 KeV --> scale (if needed) the final projected density
+//				#pragma omp atomic update
 				inelastic_slab->real_values[atoms_added_idx[iIDX]]  += element_inelastic_ratio * atoms_values_tmp[iIDX];
+//				#pragma omp critical
+//				{
 				distance_slab->real_values[atoms_added_idx[iIDX]] = std::min(distance_slab->real_values[atoms_added_idx[iIDX]],atoms_distances_tmp[iIDX]);
+//				}
+//				{
+//					tmp_distance = distance_slab->real_values[atoms_added_idx[iIDX]];
+//					tmp_distance = std::min(tmp_distance, atoms_distances_tmp[iIDX]);
+//					distance_slab->real_values[atoms_added_idx[iIDX]] = tmp_distance;
+////					distance_slab->real_values[atoms_added_idx[iIDX]] = std::min(distance_slab->real_values[atoms_added_idx[iIDX]],atoms_distances_tmp[iIDX]);
+//				}
 			}
 
 		}// if statment into neigh
@@ -3357,6 +3371,7 @@ void SimulateApp::fill_water_potential(const PDB * current_specimen,Image *scatt
 	float bPlusB[5];
 	float ix(0), iy(0), iz(0);
 	float dx(0), dy(0), dz (0);
+	int int_x,int_y,int_z;
 	float x1(0.0f), y1(0.0f), z1(0.0f);
 	int indX(0), indY(0), indZ(0);
 	int sx(0), sy(0);
@@ -3399,11 +3414,14 @@ void SimulateApp::fill_water_potential(const PDB * current_specimen,Image *scatt
 //	timer.lap("water_pre");
 
 	long n_waters_ignored = 0;
-	#pragma omp parallel for num_threads(this->number_of_threads) schedule(static,water_box->number_of_waters/number_of_threads) private(radius,ix,iy,iz,dx,dy,dz,x1,y1,z1,indX,indY,indZ,sx,sy,iSubPixX,iSubPixY,iSubPixLinearIndex,n_waters_ignored, current_weight, current_distance, current_potential)
+	#pragma omp parallel for num_threads(this->number_of_threads) \
+	schedule(static,water_box->number_of_waters/number_of_threads) \
+	private(radius,ix,iy,iz,dx,dy,dz,x1,y1,z1,indX,indY,indZ,int_x,int_y,int_z, \
+			sx,sy,iSubPixX,iSubPixY,iSubPixZ,iSubPixLinearIndex, \
+			n_waters_ignored, current_weight, current_distance, current_potential) \
+
 	for (int current_atom = 0; current_atom < water_box->number_of_waters; current_atom++)
 	{
-
-		int int_x,int_y,int_z;
 
 		water_box->ReturnCenteredCoordinates(current_atom,dx,dy,dz);
 
