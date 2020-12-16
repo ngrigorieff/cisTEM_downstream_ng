@@ -1867,7 +1867,7 @@ void MatchTemplateApp::MasterHandleProgramDefinedResult(float *result_array, lon
 			nTrys++;
 //			wxPrintf("Trying the %ld'th peak\n",nTrys);
 			// FIXME min-distance from edges would be better to set dynamically.
-			current_peak = scaled_mip.FindPeakWithIntegerCoordinates(0.0, FLT_MAX, input_reconstruction.logical_x_dimension / 2 + 1);
+			current_peak = scaled_mip.FindPeakWithIntegerCoordinates(0.0, FLT_MAX, input_reconstruction.logical_x_dimension / 4 + 1);
 			if (current_peak.value < expected_threshold) break;
 
 			// ok we have peak..
