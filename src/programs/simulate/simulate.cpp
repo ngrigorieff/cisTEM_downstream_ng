@@ -2100,7 +2100,7 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 
 					if (DO_APPLY_DQE )
 					{
-						apply_sqrt_DQE_or_NTF(&Potential_3d,0,true);
+						apply_sqrt_DQE_or_NTF(&Potential_3d,0,false);
 					}
 
 
@@ -3772,8 +3772,7 @@ void SimulateApp::apply_sqrt_DQE_or_NTF(Image *image_in, int iTilt_IDX, bool do_
 
 				spatial_frequency = sqrtf(x_coord_sq + y_coord_sq + z_coord_sq);
 
-				if (do_root_DQE)
-				{
+
 					// Sum of three gaussians
 					for (int iGaussian = 0; iGaussian < 5; iGaussian++)
 					{
@@ -3781,17 +3780,10 @@ void SimulateApp::apply_sqrt_DQE_or_NTF(Image *image_in, int iTilt_IDX, bool do_
 																			  powf( (spatial_frequency-DQE_PARAMETERS_B[CAMERA_MODEL][iGaussian]) /
 																					 DQE_PARAMETERS_C[CAMERA_MODEL][iGaussian],2)) );
 					}
-				}
-	//			else
-	//			{
-	//				// NTF (NPS/ConversionFactor^2*Neletrons Ttotal) sum of 2 gaussians
-	//				for (int iGaussian = 0; iGaussian < 2; iGaussian++)
-	//				{
-	//					weight += ( NTF_PARAMETERS_A[CAMERA_MODEL][iGaussian] * expf(-1.0f*
-	//																		  powf( (spatial_frequency-NTF_PARAMETERS_B[CAMERA_MODEL][iGaussian]) /
-	//																				 NTF_PARAMETERS_C[CAMERA_MODEL][iGaussian],2)) );
-	//				}
-	//			}
+//					if (i==0 && j == 0) wxPrintf("DQE at %3.3e is %3.3e\n", spatial_frequency, weight);
+				if (! do_root_DQE) weight *= weight; // MTF2/NTF2 = DQE
+
+
 				image_in[iTilt_IDX].complex_values[pixel_counter] *= weight;
 
 				pixel_counter++;
