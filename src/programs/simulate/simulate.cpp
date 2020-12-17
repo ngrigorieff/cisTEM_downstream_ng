@@ -3069,7 +3069,12 @@ void SimulateApp::calc_scattering_potential(const PDB * current_specimen,
 
 	float bPlusB[5];
 	// TODO experiment with the scheduling. Until the specimen is consistently full, many consecutive slabs may have very little work for the assigned threads to handle.
-	#pragma omp parallel for num_threads(this->number_of_threads) private( \
+	#pragma omp parallel for \
+	num_threads(this->number_of_threads) \
+	default(none) \
+	shared(current_specimen, rotated_oZ, slabIDX_start, slabIDX_end, iSlab, z_top, z_low, \
+			scattering_slab, inelastic_slab, distance_slab) \
+	private( \
 	atom_id, bFactor, bPlusB, radius, ix,iy,iz,x1,x2,y1,y2,z1,z2,indX,indY, \
 	indZ,sx,sy,sz,dx,dy,dz,xDistSq,yDistSq,zDistSq,iLim,jLim,kLim, iGaussian, element_inelastic_ratio,		\
 	water_offset,atoms_values_tmp,atoms_added_idx,atoms_distances_tmp,n_atoms_added,pixel_offset,bfX,bfY,bfZ)
@@ -3781,7 +3786,8 @@ void SimulateApp::apply_sqrt_DQE_or_NTF(Image *image_in, int iTilt_IDX, bool do_
 																					 DQE_PARAMETERS_C[CAMERA_MODEL][iGaussian],2)) );
 					}
 //					if (i==0 && j == 0) wxPrintf("DQE at %3.3e is %3.3e\n", spatial_frequency, weight);
-				if (! do_root_DQE) weight *= weight; // MTF2/NTF2 = DQE
+//				if (! do_root_DQE) weight *= weight; // MTF2/NTF2 = DQE
+//				if (i==0 && j == 0) wxPrintf("DQE at %3.3e is %3.3e\n", spatial_frequency, weight);
 
 
 				image_in[iTilt_IDX].complex_values[pixel_counter] *= weight;
