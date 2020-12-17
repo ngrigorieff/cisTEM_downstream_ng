@@ -177,7 +177,7 @@ public:
 	void CircleMaskWithValue(float wanted_mask_radius, float wanted_mask_value, bool invert = false);
 	void SquareMaskWithValue(float wanted_mask_dim, float wanted_mask_value, bool invert = false, int wanted_center_x = 0, int wanted_center_y = 0, int wanted_center_z = 0);
 	void TriangleMask(float wanted_triangle_half_base_length);
-	void CalculateCTFImage(CTF &ctf_of_image, bool calculate_complex_ctf = false);
+	void CalculateCTFImage(CTF &ctf_of_image, bool calculate_complex_ctf = false, bool apply_coherence_envelope = false);
 	void CalculateBeamTiltImage(CTF &ctf_of_image, bool output_phase_shifts = false);
 	bool ContainsBlankEdges(float mask_radius = 0.0);
 	void CorrectMagnificationDistortion(float distortion_angle, float distortion_major_axis, float distortion_minor_axis);

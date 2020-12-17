@@ -3162,9 +3162,10 @@ void Image::AddByLinearInterpolationFourier2D(float &wanted_logical_x_coordinate
 	}
 }
 
-void Image::CalculateCTFImage(CTF &ctf_of_image, bool calculate_complex_ctf)
+void Image::CalculateCTFImage(CTF &ctf_of_image, bool calculate_complex_ctf, bool apply_coherence_envelope)
 {
 	MyDebugAssertTrue(is_in_memory, "Memory not allocated for CTF image");
+	if (apply_coherence_envelope) {MyDebugAssertFalse( calculate_complex_ctf, "calculating a complex CTF and a coherence envelope is not supported.");}
 //	MyDebugAssertTrue(is_in_real_space == false, "CTF image not in Fourier space");
 
 	int i;
@@ -3206,7 +3207,9 @@ void Image::CalculateCTFImage(CTF &ctf_of_image, bool calculate_complex_ctf)
 			}
 			else
 			{
-				complex_values[pixel_counter] = ctf_of_image.Evaluate(frequency_squared,azimuth) + I * 0.0f;
+				if (apply_coherence_envelope) complex_values[pixel_counter] = ctf_of_image.EvaluateWithEnvelope(frequency_squared,azimuth) + I * 0.0f;
+				else complex_values[pixel_counter] = ctf_of_image.Evaluate(frequency_squared,azimuth) + I * 0.0f;
+
 			}
 			pixel_counter++;
 		}

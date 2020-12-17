@@ -490,6 +490,23 @@ bool MatchTemplateApp::DoCalculation()
 	input_search_image_file.OpenFile(input_search_images_filename.ToStdString(), false);
 	input_reconstruction_file.OpenFile(input_reconstruction_filename.ToStdString(), false);
 
+	bool do_shift_blur_hack = true;
+	float shift_hack_x, shift_hack_y;
+	if (do_shift_blur_hack)
+	{
+		wxPrintf("Doing the shift blur hack\n");
+
+		if (input_search_images_filename.EndsWith("23.55.46_5_0.mrc")) shift_hack_x = -3.44; shift_hack_y = -4.0;
+		if (input_search_images_filename.EndsWith("13.55.43_1_0.mrc")) shift_hack_x = -2.15; shift_hack_y = -2.4;
+		if (input_search_images_filename.EndsWith("14.51.34_3_0.mrc")) shift_hack_x = -3.46; shift_hack_y = -4.13;
+		if (input_search_images_filename.EndsWith("16.17.41_4_0.mrc")) shift_hack_x = -2.39; shift_hack_y = -6.26;
+		if (input_search_images_filename.EndsWith("14.05.57_2_0.mrc")) shift_hack_x = -1.13; shift_hack_y = -2.29;
+
+		wxPrintf("For image %s using x,y shifts of %3.3f, %3.3f\n",input_search_images_filename,shift_hack_x,shift_hack_y);
+
+
+	}
+
 	//
 	remove_npix_from_edge = myroundint(particle_radius_angstroms / pixel_size);
 //	wxPrintf("Removing %d pixels around the edge.\n", remove_npix_from_edge);
@@ -895,10 +912,52 @@ bool MatchTemplateApp::DoCalculation()
 			// make the projection filter, which will be CTF * whitening filter
 			input_ctf.SetDefocus((defocus1 + float(defocus_i) * defocus_step) / pixel_size, (defocus2 + float(defocus_i) * defocus_step) / pixel_size, deg_2_rad(defocus_angle));
 //			input_ctf.SetDefocus((defocus1 + 200) / pixel_size, (defocus2 + 200) / pixel_size, deg_2_rad(defocus_angle));
-			projection_filter.CalculateCTFImage(input_ctf);
+			bool use_ctf_envelope = true;
+			if (use_ctf_envelope)
+			{
+				wxPrintf("Using the CTF envelope!\n");
+				input_ctf.SetEnvelope(voltage_kV, pixel_size, 8.0f / (pixel_size*pixel_size));
+				projection_filter.CalculateCTFImage(input_ctf, false, true);
+
+			}
+			else projection_filter.CalculateCTFImage(input_ctf);
 			projection_filter.ApplyCurveFilter(&whitening_filter);
 
 
+			if (do_shift_blur_hack)
+			{
+				wxPrintf("Doing the shift blur hack loop\n");
+
+				int i;
+				int j;
+
+				long pixel_counter = 0;
+
+				float x_coordinate_2d;
+				float y_coordinate_2d;
+
+
+				float sinc_weight;
+
+				for (j = 0; j <= projection_filter.physical_upper_bound_complex_y; j++)
+				{
+					y_coordinate_2d = projection_filter.ReturnFourierLogicalCoordGivenPhysicalCoord_Y(j) * projection_filter.fourier_voxel_size_y / pixel_size;
+					y_coordinate_2d *= shift_hack_y;
+					for (i = 0; i <= projection_filter.physical_upper_bound_complex_x; i++)
+					{
+						x_coordinate_2d = i * projection_filter.fourier_voxel_size_x / pixel_size;
+						x_coordinate_2d *= shift_hack_x;
+
+						sinc_weight = sinc(PIf*(x_coordinate_2d+y_coordinate_2d));
+						if (sinc_weight < 0.f) sinc_weight *= sinc_weight; // make positive and shrink.
+						projection_filter.complex_values[pixel_counter] *= sinc_weight;
+
+						pixel_counter++;
+					}
+				}
+			}
+//			projection_filter.QuickAndDirtyWriteSlice("normal_filter_with_envelope_and_sinc.mrc", 1, false, 1.5);
+//			exit(0);
 //			projection_filter.QuickAndDirtyWriteSlices("/tmp/projection_filter.mrc",1,projection_filter.logical_z_dimension,true,1.5);
 			if (use_gpu)
 			{
