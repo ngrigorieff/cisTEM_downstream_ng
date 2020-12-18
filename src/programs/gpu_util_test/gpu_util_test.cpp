@@ -45,10 +45,10 @@ bool GpuUtilTest::DoCalculation()
 	std::string fileNameIN;
 	std::string fileNameOUT;
 
-	for (int i = 0; i < 600; i+=500)
+	for (int i = 300; i < 600; i+=700)
 	{
-		fileNameIN = "sweep4_shell_1_MTF_1_BF_"  + std::to_string(i) + "_PDB_1_PRE_1_EXP_2_modsig_0_pix_1.496.mrc";
-		fileNameOUT = "sweep4_shell_1_MTF_1_BF_"  + std::to_string(i) + "_PDB_1_PRE_1_EXP_2_modsig_0_pix_1.496.txt";
+		fileNameIN = "sweep4_shell_1_MTF_1_BF_"  + std::to_string(i) + "_PDB_0_pix_1.496.mrc";
+		fileNameOUT = "sweep4_shell_1_MTF_1_BF_"  + std::to_string(i) + "_PDB_0_pix_1.496.txt";
 		wxPrintf("%s\n",fileNameIN);
 		input_image.QuickAndDirtyReadSlices(fileNameIN, 1, 768);
 		input_image.ForwardFFT(false);
