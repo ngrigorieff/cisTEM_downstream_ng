@@ -11,7 +11,7 @@
 const float xtra_shift = -0.5f;
 const float HYDRATION_VALS[8] = {0.1750f,   -0.1350f,    2.23f,    3.43f,    4.78f,    1.0000f,    1.7700f,    0.9550f};
 const float DISTANCE_INIT = 100000.0f; // Set the distance slab to a large value
-
+const float BfactorFactor = 2.f;
 const int N_WATER_TERMS = 40;
 
 const float WATER_BFACTOR_PER_ELECTRON_PER_SQANG = 34.0f;
@@ -544,7 +544,7 @@ class SimulateApp : public MyApp
 
 	inline float return_bfactor(float pdb_bfactor)
 	{
-		return 	 0.25f*(this->min_bFactor + pdb_bfactor*this->bFactor_scaling);
+		return 	 BfactorFactor*(this->min_bFactor + pdb_bfactor*this->bFactor_scaling);
 	}
 
 
@@ -3244,12 +3244,12 @@ void SimulateApp::calc_water_potential(Image *projected_water, AtomType wanted_a
 	if (DO_PHASE_PLATE)
 	{
 		atom_id = carbon;
-		bFactor = 0.25f * PHASE_PLATE_BFACTOR;
+		bFactor = BfactorFactor * PHASE_PLATE_BFACTOR;
 		water_lead_term = this->lead_term;
 	}
 	else
 	{
-		bFactor = 0.25f * WATER_BFACTOR_PER_ELECTRON_PER_SQANG * this->dose_per_frame;
+		bFactor = BfactorFactor * WATER_BFACTOR_PER_ELECTRON_PER_SQANG * this->dose_per_frame;
 		water_lead_term = this->lead_term;
 
 		atom_id = SOLVENT_TYPE;
