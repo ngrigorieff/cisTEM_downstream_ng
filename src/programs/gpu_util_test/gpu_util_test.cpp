@@ -37,6 +37,35 @@ bool GpuUtilTest::DoCalculation()
 //  this->createImageAddOne();
   int nThreads = 3;
   int nGPUs = 1;
+
+	Curve whitening_filter;
+	Curve number_of_terms;
+	Image input_image;
+	input_image.Allocate(768,768,768,true,true);
+	std::string fileNameIN;
+	std::string fileNameOUT;
+
+	for (int i = 0; i < 600; i+=500)
+	{
+		fileNameIN = "sweep4_shell_1_MTF_1_BF_"  + std::to_string(i) + "_PDB_1_PRE_1_EXP_2_modsig_0_pix_1.496.mrc";
+		fileNameOUT = "sweep4_shell_1_MTF_1_BF_"  + std::to_string(i) + "_PDB_1_PRE_1_EXP_2_modsig_0_pix_1.496.txt";
+		wxPrintf("%s\n",fileNameIN);
+		input_image.QuickAndDirtyReadSlices(fileNameIN, 1, 768);
+		input_image.ForwardFFT(false);
+		whitening_filter.SetupXAxis(0.0, 0.5 * sqrtf(3.0), int((input_image.logical_x_dimension / 2.0 + 1.0) * sqrtf(3.0) + 1.0));
+		number_of_terms.SetupXAxis(0.0, 0.5 * sqrtf(3.0), int((input_image.logical_x_dimension / 2.0 + 1.0) * sqrtf(3.0) + 1.0));
+
+
+		input_image.Compute1DPowerSpectrumCurve(&whitening_filter, &number_of_terms);
+		whitening_filter.PrintToStandardOut();
+		whitening_filter.WriteToFile(fileNameOUT);
+
+
+
+	}
+
+	exit(0);
+
   this->TemplateMatchingStandalone(nThreads, nGPUs);
 
   int gpuID = 0;

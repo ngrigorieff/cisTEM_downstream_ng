@@ -948,8 +948,8 @@ bool MatchTemplateApp::DoCalculation()
 						x_coordinate_2d = i * projection_filter.fourier_voxel_size_x / pixel_size;
 						x_coordinate_2d *= shift_hack_x;
 
-						sinc_weight = sinc(PIf*(x_coordinate_2d+y_coordinate_2d));
-						if (sinc_weight < 0.f) sinc_weight *= sinc_weight; // make positive and shrink.
+						sinc_weight = sinc(1.05f*PIf*(x_coordinate_2d+y_coordinate_2d));
+//						if (sinc_weight < 0.f) sinc_weight *= sinc_weight; // make positive and shrink.
 						projection_filter.complex_values[pixel_counter] *= sinc_weight;
 
 						pixel_counter++;
