@@ -41,16 +41,17 @@ bool GpuUtilTest::DoCalculation()
 	Curve whitening_filter;
 	Curve number_of_terms;
 	Image input_image;
-	input_image.Allocate(768,768,768,true,true);
+	input_image.Allocate(512,512,512,true,true);
 	std::string fileNameIN;
 	std::string fileNameOUT;
+	int bf[6] = {0,20,60,140,300,620};
 
-	for (int i = 300; i < 600; i+=700)
+	for (int i = 0; i < 6; i++)
 	{
-		fileNameIN = "sweep4_shell_1_MTF_1_BF_"  + std::to_string(i) + "_PDB_0_pix_1.496.mrc";
-		fileNameOUT = "sweep4_shell_1_MTF_1_BF_"  + std::to_string(i) + "_PDB_0_pix_1.496.txt";
+		fileNameIN = "sweep4_shell_1_MTF_1_BF_"  + std::to_string(bf[i]) + "_PDB_0_pix_1.0.mrc";
+		fileNameOUT = "sweep4_shell_1_MTF_1_BF_"  + std::to_string(bf[i]) + "_PDB_0_pix_1.0.txt";
 		wxPrintf("%s\n",fileNameIN);
-		input_image.QuickAndDirtyReadSlices(fileNameIN, 1, 768);
+		input_image.QuickAndDirtyReadSlices(fileNameIN, 1, 512);
 		input_image.ForwardFFT(false);
 		whitening_filter.SetupXAxis(0.0, 0.5 * sqrtf(3.0), int((input_image.logical_x_dimension / 2.0 + 1.0) * sqrtf(3.0) + 1.0));
 		number_of_terms.SetupXAxis(0.0, 0.5 * sqrtf(3.0), int((input_image.logical_x_dimension / 2.0 + 1.0) * sqrtf(3.0) + 1.0));
