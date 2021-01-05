@@ -27,7 +27,8 @@ public:
 
 
 	__inline__ float ReturnScatteringParamtersA( AtomType id, int term_number) { return SCATTERING_PARAMETERS_A[id][term_number]; }
-	__inline__ float ReturnScatteringParamtersB( AtomType id, int term_number) { return SCATTERING_PARAMETERS_B[id][term_number]; }
+	// The factor of 4 is needed to make 1eaa.pdb have a -200A^2 Bfactor (slope of -50 on Guinier plot) to match Rosenthal & Henderson 2003 figure 8 with 0 external Bfactor applied.
+	__inline__ float ReturnScatteringParamtersB( AtomType id, int term_number) { return 4.0f * SCATTERING_PARAMETERS_B[id][term_number]; }
 	__inline__ float ReturnAtomicNumber( AtomType id) { return ATOMIC_NUMBER[id]; }
 
 	void InitPdbEnsemble(	float wanted_pixel_size, float do3d, int minimum_padding_x_and_y, int minimum_thickness_z,

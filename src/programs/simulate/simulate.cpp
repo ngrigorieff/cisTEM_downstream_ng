@@ -11,7 +11,9 @@
 const float xtra_shift = -0.5f;
 const float HYDRATION_VALS[8] = {0.1750f,   -0.1350f,    2.23f,    3.43f,    4.78f,    1.0000f,    1.7700f,    0.9550f};
 const float DISTANCE_INIT = 100000.0f; // Set the distance slab to a large value
-const float BfactorFactor = 0.25f;
+// I would have thought this should be 1/4, however, when calculating a 3D and then plotting ln(F) vs freq^-2, it is clear that the relative difference
+// requires this factor to be 1/2. This is somewhat bothersome and ideally would have an explanation.
+const float BfactorFactor = 0.5f;
 const int N_WATER_TERMS = 40;
 
 const float WATER_BFACTOR_PER_ELECTRON_PER_SQANG = 34.0f;
