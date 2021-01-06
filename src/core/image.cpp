@@ -7144,7 +7144,7 @@ void Image::Compute1DRotationalAverage(Curve &average, Curve &number_of_values, 
 }
 
 // It is assumed the curve objects are already setup with an X axis in reciprocal pixels (i.e. origin is 0.0, Nyquist is 0.5)
-void Image::Compute1DPowerSpectrumCurve(Curve *curve_with_average_power, Curve *curve_with_number_of_values)
+void Image::Compute1DPowerSpectrumCurve(Curve *curve_with_average_power, Curve *curve_with_number_of_values, bool average_amplitudes_not_intensities)
 {
 
 	MyDebugAssertTrue(is_in_memory,"Memory not allocated");
@@ -7191,7 +7191,14 @@ void Image::Compute1DPowerSpectrumCurve(Curve *curve_with_average_power, Curve *
 					spatial_frequency = sqrtf(sq_dist_x+sq_dist_y+sq_dist_z);
 
 					// TODO: this could be made faster by doing both interpolations in one go, so one wouldn't have to work out twice between which points the interpolation will happen
-					curve_with_average_power->AddValueAtXUsingLinearInterpolation(spatial_frequency,real(complex_values[address]) * real(complex_values[address]) + imag(complex_values[address]) * imag(complex_values[address]), true );
+					if (average_amplitudes_not_intensities)
+					{
+						curve_with_average_power->AddValueAtXUsingLinearInterpolation(spatial_frequency,sqrtf(real(complex_values[address]) * real(complex_values[address]) + imag(complex_values[address]) * imag(complex_values[address])), true );
+					}
+					else
+					{
+						curve_with_average_power->AddValueAtXUsingLinearInterpolation(spatial_frequency,real(complex_values[address]) * real(complex_values[address]) + imag(complex_values[address]) * imag(complex_values[address]), true );
+					}
 					curve_with_number_of_values->AddValueAtXUsingLinearInterpolation(spatial_frequency,1.0, true);
 
 					address ++;

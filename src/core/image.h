@@ -406,7 +406,7 @@ public:
 	void ComputeFilteredAmplitudeSpectrumFull2D(Image* average_spectrum_masked, Image* current_power_spectrum, float& average, float& sigma, float minimum_resolution, float maximum_resolution, float pixel_size_for_fitting);
 	void ComputeAmplitudeSpectrum(Image *other_image, bool signed_values = false);
 	void ComputeHistogramOfRealValuesCurve(Curve *histogram_curve);
-	void Compute1DPowerSpectrumCurve(Curve *curve_with_average_power, Curve *curve_with_number_of_values);
+	void Compute1DPowerSpectrumCurve(Curve *curve_with_average_power, Curve *curve_with_number_of_values, bool average_amplitudes_not_intensities = false);
 	void Compute1DRotationalAverage(Curve &average, Curve &number_of_values, bool fractional_radius_in_real_space = false, bool average_real_parts = false);
 	void ComputeSpatialFrequencyAtEveryVoxel();
 	void AverageRadially();

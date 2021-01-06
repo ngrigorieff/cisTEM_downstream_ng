@@ -57,7 +57,7 @@ bool GpuUtilTest::DoCalculation()
 		number_of_terms.SetupXAxis(0.0, 0.5 * sqrtf(3.0), int((input_image.logical_x_dimension / 2.0 + 1.0) * sqrtf(3.0) + 1.0));
 
 
-		input_image.Compute1DPowerSpectrumCurve(&whitening_filter, &number_of_terms);
+		input_image.Compute1DPowerSpectrumCurve(&whitening_filter, &number_of_terms, true);
 		whitening_filter.PrintToStandardOut();
 		whitening_filter.WriteToFile(fileNameOUT);
 
