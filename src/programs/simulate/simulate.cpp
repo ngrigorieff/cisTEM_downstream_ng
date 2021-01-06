@@ -838,7 +838,7 @@ void SimulateApp::DoInteractiveUserInput()
 
 	 this->wanted_pixel_size 		= my_input->GetFloatFromUser("Output pixel size (Angstroms)","Output size for the final projections","1.0",0.01,MAX_PIXEL_SIZE);
 	 this->bFactor_scaling		 = my_input->GetFloatFromUser("Linear scaling of per atom bFactor","0 off, 1 use as is","0",0,10000);
-	 this->min_bFactor    		 = my_input->GetFloatFromUser("Per atom (xtal) bFactor added to all atoms","accounts for all quote[unavoidable] experimental error","30.0",0.0f,10000);
+	 this->min_bFactor    		 = my_input->GetFloatFromUser("Per atom (xtal) bFactor added to all atoms","accounts for all quote[unavoidable] experimental error","0.0",-100.f,10000.f);
 
 
 
