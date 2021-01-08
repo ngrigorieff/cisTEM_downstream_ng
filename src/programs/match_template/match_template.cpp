@@ -495,18 +495,47 @@ bool MatchTemplateApp::DoCalculation()
 	if (do_shift_blur_hack)
 	{
 		wxPrintf("Doing the shift blur hack\n");
-//
-//		if (input_search_images_filename.EndsWith("13.55.43_1_0.mrc")) shift_hack_x = 0.3; shift_hack_y = 0.54;
-//		if (input_search_images_filename.EndsWith("14.05.57_2_0.mrc")) shift_hack_x = 0.36; shift_hack_y = 0.47;
-//		if (input_search_images_filename.EndsWith("14.51.34_3_0.mrc")) shift_hack_x = 0.26; shift_hack_y = 0.55;
-//		if (input_search_images_filename.EndsWith("16.17.41_4_0.mrc")) shift_hack_x = 0.17; shift_hack_y = 0.49;
-//		if (input_search_images_filename.EndsWith("23.55.46_5_0.mrc")) shift_hack_x = 0.25; shift_hack_y = 0.39;
+		wxString tmp_string = input_search_images_filename;
 
-		if (input_search_images_filename.EndsWith("13.55.43_1_0.mrc")) shift_hack_x = 0.2; shift_hack_y = 0.24;
-		if (input_search_images_filename.EndsWith("14.05.57_2_0.mrc")) shift_hack_x = 0.03; shift_hack_y = 0.1;
-		if (input_search_images_filename.EndsWith("14.51.34_3_0.mrc")) shift_hack_x = 0.02; shift_hack_y = 0.20;
-		if (input_search_images_filename.EndsWith("16.17.41_4_0.mrc")) shift_hack_x = 0.08; shift_hack_y = 0.13;
-		if (input_search_images_filename.EndsWith("23.55.46_5_0.mrc")) shift_hack_x = 0.06; shift_hack_y = 0.18;
+
+		// Frame 2
+//				if (tmp_string.AfterLast('/').StartsWith("May06_13.55.43")) shift_hack_x = -2.150; shift_hack_y = -2.386;
+//				if (tmp_string.AfterLast('/').StartsWith("May06_14.05.57")) shift_hack_x = -1.495; shift_hack_y = -2.187;
+//				if (tmp_string.AfterLast('/').StartsWith("May06_14.51.34")) shift_hack_x = -3.812; shift_hack_y = -4.019;
+//				if (tmp_string.AfterLast('/').StartsWith("May06_16.17.41")) shift_hack_x = -2.328; shift_hack_y = -6.239;
+//				if (tmp_string.AfterLast('/').StartsWith("May06_23.55.46")) shift_hack_x = -3.428; shift_hack_y = -3.916;
+
+		// Frame 8
+				if (tmp_string.StartsWith("May06_13.55.43")) shift_hack_x = -1.346; shift_hack_y = -1.953;
+				if (tmp_string.StartsWith("May06_14.05.57")) shift_hack_x = -2.623; shift_hack_y = -3.024;
+				if (tmp_string.StartsWith("May06_14.51.34")) shift_hack_x = -3.533; shift_hack_y = -3.517;
+				if (tmp_string.StartsWith("May06_16.17.41")) shift_hack_x = -1.396; shift_hack_y = -4.148;
+				if (tmp_string.StartsWith("May06_23.55.46")) shift_hack_x = -2.595; shift_hack_y = -2.976;
+
+		// Frame 13
+		//		if (tmp_string.StartsWith("May06_13.55.43")) shift_hack_x = -0.712; shift_hack_y = -1.058;
+		//		if (tmp_string.StartsWith("May06_14.05.57")) shift_hack_x = -1.381; shift_hack_y = -1.505;
+		//		if (tmp_string.StartsWith("May06_14.51.34")) shift_hack_x = -1.530; shift_hack_y = -1.593;
+		//		if (tmp_string.StartsWith("May06_16.17.41")) shift_hack_x = -0.550; shift_hack_y = -1.644;
+		//		if (tmp_string.StartsWith("May06_23.55.46")) shift_hack_x = -1.023; shift_hack_y = -1.272;
+
+		// Frame 17
+		//		if (tmp_string.StartsWith("May06_13.55.43")) shift_hack_x = -0.356; shift_hack_y = -0.563;
+		//		if (tmp_string.StartsWith("May06_14.05.57")) shift_hack_x = -0.690; shift_hack_y = -0.721;
+		//		if (tmp_string.StartsWith("May06_14.51.34")) shift_hack_x = -0.613; shift_hack_y = -0.771;
+		//		if (tmp_string.StartsWith("May06_16.17.41")) shift_hack_x = -0.210; shift_hack_y = -0.552;
+		//		if (tmp_string.StartsWith("May06_23.55.46")) shift_hack_x = -0.294; shift_hack_y = -0.415;
+
+		// Frame 19
+		//		if (tmp_string.StartsWith("May06_13.55.43")) shift_hack_x = -0.219; shift_hack_y = -0.227;
+		//		if (tmp_string.StartsWith("May06_14.05.57")) shift_hack_x = -0.234; shift_hack_y = -0.289;
+		//		if (tmp_string.StartsWith("May06_14.51.34")) shift_hack_x = -0.309; shift_hack_y = -0.373;
+		//		if (tmp_string.StartsWith("May06_16.17.41")) shift_hack_x = -0.068; shift_hack_y = -0.117;
+		//		if (tmp_string.StartsWith("May06_23.55.46")) shift_hack_x = -0.067; shift_hack_y = -0.193;
+
+
+
+
 		wxPrintf("For image %s using x,y shifts of %3.3f, %3.3f\n",input_search_images_filename,shift_hack_x,shift_hack_y);
 
 
