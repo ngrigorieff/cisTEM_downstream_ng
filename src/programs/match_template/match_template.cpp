@@ -495,13 +495,18 @@ bool MatchTemplateApp::DoCalculation()
 	if (do_shift_blur_hack)
 	{
 		wxPrintf("Doing the shift blur hack\n");
+//
+//		if (input_search_images_filename.EndsWith("13.55.43_1_0.mrc")) shift_hack_x = 0.3; shift_hack_y = 0.54;
+//		if (input_search_images_filename.EndsWith("14.05.57_2_0.mrc")) shift_hack_x = 0.36; shift_hack_y = 0.47;
+//		if (input_search_images_filename.EndsWith("14.51.34_3_0.mrc")) shift_hack_x = 0.26; shift_hack_y = 0.55;
+//		if (input_search_images_filename.EndsWith("16.17.41_4_0.mrc")) shift_hack_x = 0.17; shift_hack_y = 0.49;
+//		if (input_search_images_filename.EndsWith("23.55.46_5_0.mrc")) shift_hack_x = 0.25; shift_hack_y = 0.39;
 
-		if (input_search_images_filename.EndsWith("23.55.46_5_0.mrc")) shift_hack_x = -3.44; shift_hack_y = -4.0;
-		if (input_search_images_filename.EndsWith("13.55.43_1_0.mrc")) shift_hack_x = -2.15; shift_hack_y = -2.4;
-		if (input_search_images_filename.EndsWith("14.51.34_3_0.mrc")) shift_hack_x = -3.46; shift_hack_y = -4.13;
-		if (input_search_images_filename.EndsWith("16.17.41_4_0.mrc")) shift_hack_x = -2.39; shift_hack_y = -6.26;
-		if (input_search_images_filename.EndsWith("14.05.57_2_0.mrc")) shift_hack_x = -1.13; shift_hack_y = -2.29;
-
+		if (input_search_images_filename.EndsWith("13.55.43_1_0.mrc")) shift_hack_x = 0.2; shift_hack_y = 0.24;
+		if (input_search_images_filename.EndsWith("14.05.57_2_0.mrc")) shift_hack_x = 0.03; shift_hack_y = 0.1;
+		if (input_search_images_filename.EndsWith("14.51.34_3_0.mrc")) shift_hack_x = 0.02; shift_hack_y = 0.20;
+		if (input_search_images_filename.EndsWith("16.17.41_4_0.mrc")) shift_hack_x = 0.08; shift_hack_y = 0.13;
+		if (input_search_images_filename.EndsWith("23.55.46_5_0.mrc")) shift_hack_x = 0.06; shift_hack_y = 0.18;
 		wxPrintf("For image %s using x,y shifts of %3.3f, %3.3f\n",input_search_images_filename,shift_hack_x,shift_hack_y);
 
 
