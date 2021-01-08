@@ -2058,6 +2058,8 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 
 
 					Potential_3d.ForwardFFT(true);
+					float variance_in = Potential_3d.ReturnSumOfSquares();
+
 
 
 					// Apply the pre-exposure
@@ -2067,7 +2069,7 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 
 
 					// Normally the pre-exposure is added to each frame. Here it is taken to be the total exposure.
-					my_electron_dose.CalculateCummulativeDoseFilterAs1DArray(&Potential_3d, dose_filter,std::max(this->pre_exposure,1.0f), std::max(this->number_of_frames*this->dose_per_frame,1.0f));
+					my_electron_dose.CalculateCummulativeDoseFilterAs1DArray(&Potential_3d, dose_filter,std::max(this->pre_exposure,0.01f), std::max(this->number_of_frames*this->dose_per_frame,pre_exposure+0.01f));
 
 
 					if (MODIFY_ONLY_SIGNAL==1)
@@ -2083,6 +2085,7 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 					}
 					else if (MODIFY_ONLY_SIGNAL==2)
 						{
+						wxPrintf("Modify only the signal (for TM ref)\n");
 							for (long pixel_counter = 0; pixel_counter < Potential_3d.real_memory_allocated / 2; pixel_counter++)
 							{
 
@@ -2100,6 +2103,7 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 						}
 					}
 
+
 					if (DO_APPLY_DQE )
 					{
 						apply_sqrt_DQE_or_NTF(&Potential_3d,0,false);
@@ -2108,6 +2112,9 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 
 					delete [] dose_filter;
 
+					// reset the variance
+					Potential_3d.MultiplyByConstant(variance_in/Potential_3d.ReturnSumOfSquares());
+
 
 					if (this->bin3d > 1)
 					{
@@ -2115,6 +2122,7 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 						Potential_3d.Resize(exact_cropping_size/this->bin3d,exact_cropping_size/this->bin3d,exact_cropping_size/this->bin3d);
 
 					}
+
 
 					Potential_3d.BackwardFFT();
 
