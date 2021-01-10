@@ -520,18 +520,18 @@ bool MatchTemplateApp::DoCalculation()
 //				if (tmp_string.StartsWith("May06_23.55.46")) shift_hack_x = -1.023; shift_hack_y = -1.272;
 
 		// Frame 19
-				if (tmp_string.StartsWith("May06_13.55.43")) shift_hack_x = -0.356; shift_hack_y = -0.563;
-				if (tmp_string.StartsWith("May06_14.05.57")) shift_hack_x = -0.690; shift_hack_y = -0.721;
-				if (tmp_string.StartsWith("May06_14.51.34")) shift_hack_x = -0.613; shift_hack_y = -0.771;
-				if (tmp_string.StartsWith("May06_16.17.41")) shift_hack_x = -0.210; shift_hack_y = -0.552;
-				if (tmp_string.StartsWith("May06_23.55.46")) shift_hack_x = -0.294; shift_hack_y = -0.415;
+//				if (tmp_string.StartsWith("May06_13.55.43")) shift_hack_x = -0.356; shift_hack_y = -0.563;
+//				if (tmp_string.StartsWith("May06_14.05.57")) shift_hack_x = -0.690; shift_hack_y = -0.721;
+//				if (tmp_string.StartsWith("May06_14.51.34")) shift_hack_x = -0.613; shift_hack_y = -0.771;
+//				if (tmp_string.StartsWith("May06_16.17.41")) shift_hack_x = -0.210; shift_hack_y = -0.552;
+//				if (tmp_string.StartsWith("May06_23.55.46")) shift_hack_x = -0.294; shift_hack_y = -0.415;
 
 		// Frame 27
-		//		if (tmp_string.StartsWith("May06_13.55.43")) shift_hack_x = -0.219; shift_hack_y = -0.227;
-		//		if (tmp_string.StartsWith("May06_14.05.57")) shift_hack_x = -0.234; shift_hack_y = -0.289;
-		//		if (tmp_string.StartsWith("May06_14.51.34")) shift_hack_x = -0.309; shift_hack_y = -0.373;
-		//		if (tmp_string.StartsWith("May06_16.17.41")) shift_hack_x = -0.068; shift_hack_y = -0.117;
-		//		if (tmp_string.StartsWith("May06_23.55.46")) shift_hack_x = -0.067; shift_hack_y = -0.193;
+				if (tmp_string.StartsWith("May06_13.55.43")) shift_hack_x = -0.219; shift_hack_y = -0.227;
+				if (tmp_string.StartsWith("May06_14.05.57")) shift_hack_x = -0.234; shift_hack_y = -0.289;
+				if (tmp_string.StartsWith("May06_14.51.34")) shift_hack_x = -0.309; shift_hack_y = -0.373;
+				if (tmp_string.StartsWith("May06_16.17.41")) shift_hack_x = -0.068; shift_hack_y = -0.117;
+				if (tmp_string.StartsWith("May06_23.55.46")) shift_hack_x = -0.067; shift_hack_y = -0.193;
 
 
 
