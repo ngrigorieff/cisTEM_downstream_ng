@@ -42,6 +42,6 @@ inline float ElectronDose::ReturnCummulativeDoseFilter(float dose_at_start_of_ex
 {
 	// The integrated exposure. Included in particular for the matched filter.
 	// Calculated on Wolfram Alpha = integrate exp[ -0.5 * (x/a) ] from x=0 to x=t
-	return 2.0f * critical_dose * (exp((-0.5 * dose_at_start_of_exposure) / critical_dose) - exp((-0.5 * dose_at_end_of_exosure) / critical_dose)) / dose_at_end_of_exosure;
+	return 2.0f * critical_dose * (exp((-0.5 * dose_at_start_of_exposure) / critical_dose) - exp((-0.5 * dose_at_end_of_exosure) / critical_dose)) / (dose_at_end_of_exosure-dose_at_start_of_exposure);
 }
 

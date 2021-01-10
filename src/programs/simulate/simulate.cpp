@@ -2058,7 +2058,6 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 
 
 					Potential_3d.ForwardFFT(true);
-					float variance_in = Potential_3d.ReturnSumOfSquares();
 
 
 
@@ -2112,8 +2111,6 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 
 					delete [] dose_filter;
 
-					// reset the variance
-					Potential_3d.MultiplyByConstant(variance_in/Potential_3d.ReturnSumOfSquares());
 
 
 					if (this->bin3d > 1)
