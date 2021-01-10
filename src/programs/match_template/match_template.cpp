@@ -506,27 +506,27 @@ bool MatchTemplateApp::DoCalculation()
 //				if (tmp_string.AfterLast('/').StartsWith("May06_23.55.46")) shift_hack_x = -3.428; shift_hack_y = -3.916;
 
 		// Frame 8
-				if (tmp_string.StartsWith("May06_13.55.43")) shift_hack_x = -1.346; shift_hack_y = -1.953;
-				if (tmp_string.StartsWith("May06_14.05.57")) shift_hack_x = -2.623; shift_hack_y = -3.024;
-				if (tmp_string.StartsWith("May06_14.51.34")) shift_hack_x = -3.533; shift_hack_y = -3.517;
-				if (tmp_string.StartsWith("May06_16.17.41")) shift_hack_x = -1.396; shift_hack_y = -4.148;
-				if (tmp_string.StartsWith("May06_23.55.46")) shift_hack_x = -2.595; shift_hack_y = -2.976;
+//				if (tmp_string.StartsWith("May06_13.55.43")) shift_hack_x = -1.346; shift_hack_y = -1.953;
+//				if (tmp_string.StartsWith("May06_14.05.57")) shift_hack_x = -2.623; shift_hack_y = -3.024;
+//				if (tmp_string.StartsWith("May06_14.51.34")) shift_hack_x = -3.533; shift_hack_y = -3.517;
+//				if (tmp_string.StartsWith("May06_16.17.41")) shift_hack_x = -1.396; shift_hack_y = -4.148;
+//				if (tmp_string.StartsWith("May06_23.55.46")) shift_hack_x = -2.595; shift_hack_y = -2.976;
 
 		// Frame 13
-		//		if (tmp_string.StartsWith("May06_13.55.43")) shift_hack_x = -0.712; shift_hack_y = -1.058;
-		//		if (tmp_string.StartsWith("May06_14.05.57")) shift_hack_x = -1.381; shift_hack_y = -1.505;
-		//		if (tmp_string.StartsWith("May06_14.51.34")) shift_hack_x = -1.530; shift_hack_y = -1.593;
-		//		if (tmp_string.StartsWith("May06_16.17.41")) shift_hack_x = -0.550; shift_hack_y = -1.644;
-		//		if (tmp_string.StartsWith("May06_23.55.46")) shift_hack_x = -1.023; shift_hack_y = -1.272;
-
-		// Frame 17
-		//		if (tmp_string.StartsWith("May06_13.55.43")) shift_hack_x = -0.356; shift_hack_y = -0.563;
-		//		if (tmp_string.StartsWith("May06_14.05.57")) shift_hack_x = -0.690; shift_hack_y = -0.721;
-		//		if (tmp_string.StartsWith("May06_14.51.34")) shift_hack_x = -0.613; shift_hack_y = -0.771;
-		//		if (tmp_string.StartsWith("May06_16.17.41")) shift_hack_x = -0.210; shift_hack_y = -0.552;
-		//		if (tmp_string.StartsWith("May06_23.55.46")) shift_hack_x = -0.294; shift_hack_y = -0.415;
+//				if (tmp_string.StartsWith("May06_13.55.43")) shift_hack_x = -0.712; shift_hack_y = -1.058;
+//				if (tmp_string.StartsWith("May06_14.05.57")) shift_hack_x = -1.381; shift_hack_y = -1.505;
+//				if (tmp_string.StartsWith("May06_14.51.34")) shift_hack_x = -1.530; shift_hack_y = -1.593;
+//				if (tmp_string.StartsWith("May06_16.17.41")) shift_hack_x = -0.550; shift_hack_y = -1.644;
+//				if (tmp_string.StartsWith("May06_23.55.46")) shift_hack_x = -1.023; shift_hack_y = -1.272;
 
 		// Frame 19
+				if (tmp_string.StartsWith("May06_13.55.43")) shift_hack_x = -0.356; shift_hack_y = -0.563;
+				if (tmp_string.StartsWith("May06_14.05.57")) shift_hack_x = -0.690; shift_hack_y = -0.721;
+				if (tmp_string.StartsWith("May06_14.51.34")) shift_hack_x = -0.613; shift_hack_y = -0.771;
+				if (tmp_string.StartsWith("May06_16.17.41")) shift_hack_x = -0.210; shift_hack_y = -0.552;
+				if (tmp_string.StartsWith("May06_23.55.46")) shift_hack_x = -0.294; shift_hack_y = -0.415;
+
+		// Frame 27
 		//		if (tmp_string.StartsWith("May06_13.55.43")) shift_hack_x = -0.219; shift_hack_y = -0.227;
 		//		if (tmp_string.StartsWith("May06_14.05.57")) shift_hack_x = -0.234; shift_hack_y = -0.289;
 		//		if (tmp_string.StartsWith("May06_14.51.34")) shift_hack_x = -0.309; shift_hack_y = -0.373;
