@@ -215,7 +215,7 @@ void MatchTemplateApp::DoInteractiveUserInput()
 	padding = my_input->GetFloatFromUser("Padding factor", "Factor determining how much the input volume is padded to improve projections", "1.0", 1.0, 2.0);
 //	ctf_refinement = my_input->GetYesNoFromUser("Refine defocus", "Should the particle defocus be refined?", "No");
 	particle_radius_angstroms = my_input->GetFloatFromUser("Mask radius for global search (A) (0.0 = max)", "Radius of a circular mask to be applied to the input images during global search", "0.0", 0.0);
-//	my_symmetry = my_input->GetSymmetryFromUser("Template symmetry", "The symmetry of the template reconstruction", "C1");
+	my_symmetry = my_input->GetSymmetryFromUser("Template symmetry", "The symmetry of the template reconstruction", "C1");
 #ifdef ENABLEGPU
 	use_gpu_input = my_input->GetYesNoFromUser("Use GPU", "Offload expensive calcs to GPU","No");
 	max_threads = my_input->GetIntFromUser("Max. threads to use for calculation", "when threading, what is the max threads to run", "1", 1);
@@ -491,52 +491,57 @@ bool MatchTemplateApp::DoCalculation()
 	input_reconstruction_file.OpenFile(input_reconstruction_filename.ToStdString(), false);
 
 	bool do_shift_blur_hack = true;
-	float shift_hack_x, shift_hack_y;
+	float* shift_hack_x;
+	float* shift_hack_y;
+	float* shift_hack_d;
+
 	if (do_shift_blur_hack)
 	{
 		wxPrintf("Doing the shift blur hack\n");
 		wxString tmp_string = input_search_images_filename;
 
+		// Frame 2-6
+		if (tmp_string.StartsWith("May06_12.48.59_20_1")) shift_hack_x = new float[5]{0.180,0.226,0.222,0.101,-0.028}; shift_hack_y = new float[5]{-0.599,-0.618,-0.596,-0.617,-0.673};shift_hack_d = new float[5]{1.155,1.925,2.695,3.465,4.235};
+		if (tmp_string.StartsWith("May06_13.45.05_28_1")) shift_hack_x = new float[5]{-1.077,-1.156,-1.145,-0.984,-0.839}; shift_hack_y = new float[5]{-1.468,-1.517,-1.510,-1.429,-1.371};shift_hack_d = new float[5]{1.155,1.925,2.695,3.465,4.235};
+		if (tmp_string.StartsWith("May06_13.50.26_29_1")) shift_hack_x = new float[5]{-1.861,-1.962,-1.959,-1.754,-1.586}; shift_hack_y = new float[5]{-2.363,-2.406,-2.397,-2.369,-2.319};shift_hack_d = new float[5]{1.155,1.925,2.695,3.465,4.235};
+		if (tmp_string.StartsWith("May06_13.34.54_26_1")) shift_hack_x = new float[5]{-0.925,-1.023,-1.029,-0.790,-0.553}; shift_hack_y = new float[5]{-0.945,-1.047,-1.048,-0.821,-0.632};shift_hack_d = new float[5]{1.155,1.925,2.695,3.465,4.235};
+		if (tmp_string.StartsWith("May06_15.16.42_47_1")) shift_hack_x = new float[5]{-1.052,-1.104,-1.107,-0.994,-0.875}; shift_hack_y = new float[5]{-0.852,-0.911,-0.901,-0.799,-0.707};shift_hack_d = new float[5]{1.155,1.925,2.695,3.465,4.235};
+		if (tmp_string.StartsWith("May06_18.59.55_91_1")) shift_hack_x = new float[5]{0.335,0.360,0.366,0.285,0.208}; shift_hack_y = new float[5]{-0.623,-0.605,-0.588,-0.717,-0.839};shift_hack_d = new float[5]{1.155,1.925,2.695,3.465,4.235};
+		if (tmp_string.StartsWith("May06_22.57.31_135_1")) shift_hack_x = new float[5]{-0.726,-0.817,-0.828,-0.592,-0.371}; shift_hack_y = new float[5]{-1.404,-1.553,-1.574,-1.188,-0.766};shift_hack_d = new float[5]{1.155,1.925,2.695,3.465,4.235};
+		if (tmp_string.StartsWith("May06_19.29.44_96_1")) shift_hack_x = new float[5]{-0.667,-0.775,-0.767,-0.535,-0.319}; shift_hack_y = new float[5]{-0.736,-0.882,-0.874,-0.547,-0.272};shift_hack_d = new float[5]{1.155,1.925,2.695,3.465,4.235};
+		if (tmp_string.StartsWith("May06_19.35.09_97_1")) shift_hack_x = new float[5]{0.283,0.287,0.276,0.300,0.305}; shift_hack_y = new float[5]{0.209,0.191,0.200,0.224,0.227};shift_hack_d = new float[5]{1.155,1.925,2.695,3.465,4.235};
+		if (tmp_string.StartsWith("May06_20.34.46_108_1")) shift_hack_x = new float[5]{1.358,1.405,1.399,1.321,1.249}; shift_hack_y = new float[5]{1.305,1.330,1.319,1.308,1.322};shift_hack_d = new float[5]{1.155,1.925,2.695,3.465,4.235};
+		if (tmp_string.StartsWith("May06_22.46.52_133_1")) shift_hack_x = new float[5]{-1.173,-1.343,-1.332,-0.992,-0.699}; shift_hack_y = new float[5]{-0.949,-1.067,-1.054,-0.817,-0.573};shift_hack_d = new float[5]{1.155,1.925,2.695,3.465,4.235};
+		if (tmp_string.StartsWith("May06_16.17.41_59_1")) shift_hack_x = new float[5]{-2.329,-2.511,-2.479,-2.181,-1.951}; shift_hack_y = new float[5]{-6.239,-6.632,-6.541,-5.957,-5.546};shift_hack_d = new float[5]{1.155,1.925,2.695,3.465,4.235};
+		if (tmp_string.StartsWith("May06_20.08.22_103_1")) shift_hack_x = new float[5]{-2.653,-3.372,-3.016,-1.983,-1.924}; shift_hack_y = new float[5]{-2.558,-3.163,-2.851,-2.035,-2.048};shift_hack_d = new float[5]{1.155,1.925,2.695,3.465,4.235};
+		if (tmp_string.StartsWith("May06_20.13.40_104_1")) shift_hack_x = new float[5]{0.083,0.107,0.111,0.049,-0.068}; shift_hack_y = new float[5]{-1.009,-0.999,-0.985,-1.087,-1.237};shift_hack_d = new float[5]{1.155,1.925,2.695,3.465,4.235};
+		if (tmp_string.StartsWith("May06_13.55.43_30_1")) shift_hack_x = new float[5]{-2.129,-2.259,-2.255,-1.997,-1.767}; shift_hack_y = new float[5]{-2.395,-2.480,-2.445,-2.344,-2.326};shift_hack_d = new float[5]{1.155,1.925,2.695,3.465,4.235};
+		if (tmp_string.StartsWith("May06_22.23.11_130_1")) shift_hack_x = new float[5]{0.532,0.581,0.570,0.474,0.446}; shift_hack_y = new float[5]{-0.700,-0.670,-0.658,-0.782,-0.897};shift_hack_d = new float[5]{1.155,1.925,2.695,3.465,4.235};
+		if (tmp_string.StartsWith("May06_23.12.42_138_1")) shift_hack_x = new float[5]{-0.894,-0.882,-0.865,-0.976,-1.114}; shift_hack_y = new float[5]{-1.953,-1.966,-1.925,-2.040,-2.228};shift_hack_d = new float[5]{1.155,1.925,2.695,3.465,4.235};
+		if (tmp_string.StartsWith("May06_16.58.30_67_1")) shift_hack_x = new float[5]{-1.170,-1.211,-1.197,-1.155,-1.132}; shift_hack_y = new float[5]{-2.725,-2.767,-2.736,-2.758,-2.782};shift_hack_d = new float[5]{1.155,1.925,2.695,3.465,4.235};
 
+		May06_13.55.43_30_1.mrc
 		// Frame 2
-//				if (tmp_string.AfterLast('/').StartsWith("May06_13.55.43")) shift_hack_x = -2.150; shift_hack_y = -2.386;
-//				if (tmp_string.AfterLast('/').StartsWith("May06_14.05.57")) shift_hack_x = -1.495; shift_hack_y = -2.187;
-//				if (tmp_string.AfterLast('/').StartsWith("May06_14.51.34")) shift_hack_x = -3.812; shift_hack_y = -4.019;
-//				if (tmp_string.AfterLast('/').StartsWith("May06_16.17.41")) shift_hack_x = -2.328; shift_hack_y = -6.239;
-//				if (tmp_string.AfterLast('/').StartsWith("May06_23.55.46")) shift_hack_x = -3.428; shift_hack_y = -3.916;
+//		    if (tmp_string.StartsWith("May06_12.48.59_20_1")) shift_hack_x = 0.180; shift_hack_y = -0.599;
+//		    if (tmp_string.StartsWith("May06_13.45.05_28_1")) shift_hack_x = -1.077; shift_hack_y = -1.468;
+//		    if (tmp_string.StartsWith("May06_13.50.26_29_1")) shift_hack_x = -1.861; shift_hack_y = -2.363;
+//		    if (tmp_string.StartsWith("May06_13.34.54_26_1")) shift_hack_x = -0.925; shift_hack_y = -0.945;
+//		    if (tmp_string.StartsWith("May06_15.16.42_47_1")) shift_hack_x = -1.052; shift_hack_y = -0.852;
+//		    if (tmp_string.StartsWith("May06_18.59.55_91_1")) shift_hack_x = 0.335; shift_hack_y = -0.623;
+//		    if (tmp_string.StartsWith("May06_22.57.31_135_1")) shift_hack_x = -0.726; shift_hack_y = -1.404;
+//		    if (tmp_string.StartsWith("May06_19.29.44_96_1")) shift_hack_x = -0.667; shift_hack_y = -0.736;
+//		    if (tmp_string.StartsWith("May06_19.35.09_97_1")) shift_hack_x = 0.283; shift_hack_y = 0.209;
+//		    if (tmp_string.StartsWith("May06_20.34.46_108_1")) shift_hack_x = 1.358; shift_hack_y = 1.305;
+//		    if (tmp_string.StartsWith("May06_22.46.52_133_1")) shift_hack_x = -1.173; shift_hack_y = -0.949;
+//		    if (tmp_string.StartsWith("May06_16.17.41_59_1")) shift_hack_x = -2.329; shift_hack_y = -6.239;
+//		    if (tmp_string.StartsWith("May06_20.08.22_103_1")) shift_hack_x = -2.653; shift_hack_y = -2.558;
+//		    if (tmp_string.StartsWith("May06_20.13.40_104_1")) shift_hack_x = 0.083; shift_hack_y = -1.009;
+//		    if (tmp_string.StartsWith("May06_13.55.43_30_1")) shift_hack_x = -2.129; shift_hack_y = -2.395;
+//		    if (tmp_string.StartsWith("May06_22.23.11_130_1")) shift_hack_x = 0.532; shift_hack_y = -0.700;
+//		    if (tmp_string.StartsWith("May06_23.12.42_138_1")) shift_hack_x = -0.894; shift_hack_y = -1.953;
+//		    if (tmp_string.StartsWith("May06_16.58.30_67_1")) shift_hack_x = -1.170; shift_hack_y = -2.725;
 
-		// Frame 8
-//				if (tmp_string.StartsWith("May06_13.55.43")) shift_hack_x = -1.346; shift_hack_y = -1.953;
-//				if (tmp_string.StartsWith("May06_14.05.57")) shift_hack_x = -2.623; shift_hack_y = -3.024;
-//				if (tmp_string.StartsWith("May06_14.51.34")) shift_hack_x = -3.533; shift_hack_y = -3.517;
-//				if (tmp_string.StartsWith("May06_16.17.41")) shift_hack_x = -1.396; shift_hack_y = -4.148;
-//				if (tmp_string.StartsWith("May06_23.55.46")) shift_hack_x = -2.595; shift_hack_y = -2.976;
-
-		// Frame 13
-//				if (tmp_string.StartsWith("May06_13.55.43")) shift_hack_x = -0.712; shift_hack_y = -1.058;
-//				if (tmp_string.StartsWith("May06_14.05.57")) shift_hack_x = -1.381; shift_hack_y = -1.505;
-//				if (tmp_string.StartsWith("May06_14.51.34")) shift_hack_x = -1.530; shift_hack_y = -1.593;
-//				if (tmp_string.StartsWith("May06_16.17.41")) shift_hack_x = -0.550; shift_hack_y = -1.644;
-//				if (tmp_string.StartsWith("May06_23.55.46")) shift_hack_x = -1.023; shift_hack_y = -1.272;
-
-		// Frame 19
-//				if (tmp_string.StartsWith("May06_13.55.43")) shift_hack_x = -0.356; shift_hack_y = -0.563;
-//				if (tmp_string.StartsWith("May06_14.05.57")) shift_hack_x = -0.690; shift_hack_y = -0.721;
-//				if (tmp_string.StartsWith("May06_14.51.34")) shift_hack_x = -0.613; shift_hack_y = -0.771;
-//				if (tmp_string.StartsWith("May06_16.17.41")) shift_hack_x = -0.210; shift_hack_y = -0.552;
-//				if (tmp_string.StartsWith("May06_23.55.46")) shift_hack_x = -0.294; shift_hack_y = -0.415;
-
-		// Frame 27
-				if (tmp_string.StartsWith("May06_13.55.43")) shift_hack_x = -0.219; shift_hack_y = -0.227;
-				if (tmp_string.StartsWith("May06_14.05.57")) shift_hack_x = -0.234; shift_hack_y = -0.289;
-				if (tmp_string.StartsWith("May06_14.51.34")) shift_hack_x = -0.309; shift_hack_y = -0.373;
-				if (tmp_string.StartsWith("May06_16.17.41")) shift_hack_x = -0.068; shift_hack_y = -0.117;
-				if (tmp_string.StartsWith("May06_23.55.46")) shift_hack_x = -0.067; shift_hack_y = -0.193;
-
-
-
-
-		wxPrintf("For image %s using x,y shifts of %3.3f, %3.3f\n",input_search_images_filename,shift_hack_x,shift_hack_y);
+		wxPrintf("For image %s using x,y shifts of %3.3f, %3.3f\n",input_search_images_filename,shift_hack_x[0],shift_hack_y[0]);
 
 
 	}
@@ -961,6 +966,13 @@ bool MatchTemplateApp::DoCalculation()
 			if (do_shift_blur_hack)
 			{
 				wxPrintf("Doing the shift blur hack loop\n");
+				Image buffer_1;
+				buffer_1.CopyFrom(&projection_filter);
+				buffer_1.SetToConstant(0.0f);
+
+				ElectronDose my_electron_dose(voltage_kV, pixel_size);
+				float *dose_filter = new float[projection_filter.real_memory_allocated/2];
+
 
 				int i;
 				int j;
@@ -973,22 +985,59 @@ bool MatchTemplateApp::DoCalculation()
 
 				float sinc_weight;
 
-				for (j = 0; j <= projection_filter.physical_upper_bound_complex_y; j++)
+				for (int iFrame = 0; iFrame < 5; iFrame++)
 				{
-					y_coordinate_2d = projection_filter.ReturnFourierLogicalCoordGivenPhysicalCoord_Y(j) * projection_filter.fourier_voxel_size_y / pixel_size;
-					y_coordinate_2d *= shift_hack_y;
-					for (i = 0; i <= projection_filter.physical_upper_bound_complex_x; i++)
+					MyPrintWithDetails("");
+
+					ZeroFloatArray(dose_filter, projection_filter.real_memory_allocated/2);
+					pixel_counter = 0;
+					MyPrintWithDetails("");
+
+					// Normally the pre-exposure is added to each frame. Here it is taken to be the total exposure.
+					my_electron_dose.CalculateDoseFilterAs1DArray(&projection_filter, dose_filter, 0.0f, shift_hack_d[iFrame]);
+					MyPrintWithDetails("");
+
+					for (j = 0; j <= projection_filter.physical_upper_bound_complex_y; j++)
 					{
-						x_coordinate_2d = i * projection_filter.fourier_voxel_size_x / pixel_size;
-						x_coordinate_2d *= shift_hack_x;
+						MyPrintWithDetails("");
 
-						sinc_weight = sinc(1.0f*PIf*(x_coordinate_2d+y_coordinate_2d));
-//						if (sinc_weight < 0.f) sinc_weight *= sinc_weight; // make positive and shrink.
-						projection_filter.complex_values[pixel_counter] *= sinc_weight;
+						y_coordinate_2d = projection_filter.ReturnFourierLogicalCoordGivenPhysicalCoord_Y(j) * projection_filter.fourier_voxel_size_y / pixel_size;
+						y_coordinate_2d *= shift_hack_y[iFrame];
+						for (i = 0; i <= projection_filter.physical_upper_bound_complex_x; i++)
+						{
+							MyPrintWithDetails("");
 
-						pixel_counter++;
+							x_coordinate_2d = i * projection_filter.fourier_voxel_size_x / pixel_size;
+							x_coordinate_2d *= shift_hack_x[iFrame];
+							MyPrintWithDetails("");
+
+							sinc_weight = sinc(1.0f*PIf*(x_coordinate_2d+y_coordinate_2d));
+	//						if (sinc_weight < 0.f) sinc_weight *= sinc_weight; // make positive and shrink.
+							buffer_1.complex_values[pixel_counter] += (projection_filter.complex_values[pixel_counter] * sinc_weight * sqrtf(dose_filter[pixel_counter]));
+							MyPrintWithDetails("");
+
+							pixel_counter++;
+						}
 					}
 				}
+				MyPrintWithDetails("");
+
+				projection_filter.CopyFrom(&buffer_1);
+				projection_filter.MultiplyByConstant(1.f/5.f);
+				MyPrintWithDetails("");
+
+				delete [] shift_hack_x;
+				MyPrintWithDetails("");
+
+				delete [] shift_hack_y;
+				MyPrintWithDetails("");
+
+				delete [] shift_hack_d;
+				MyPrintWithDetails("");
+
+				delete [] dose_filter;
+				MyPrintWithDetails("");
+
 			}
 //			projection_filter.QuickAndDirtyWriteSlice("normal_filter_with_envelope_and_sinc.mrc", 1, false, 1.5);
 //			exit(0);
