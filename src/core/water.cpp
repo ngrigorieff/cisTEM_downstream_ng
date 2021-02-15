@@ -5,8 +5,8 @@ const double SOLVENT_DENSITY = 0.94; // 0.94 +/- 0.02 Ghormley JA, Hochanadel CJ
 const double CARBON_DENSITY  = 1.75; // 2.0; // NIST and Holography paper TODO add cite (using the lower density to match the Holography paper)
 const double MW_WATER        = 18.01528;
 const double MW_CARBON       = 12.0107;
-const double CARBON_X_ANG    = 1024.0;
-const double CARBON_Y_ANG    = 1204.0;
+const double CARBON_X_ANG    = 4096.0;
+const double CARBON_Y_ANG    = 4096.0;
 
 
 Water::Water(bool do_carbon)

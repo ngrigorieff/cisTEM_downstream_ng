@@ -16,8 +16,8 @@ const float DISTANCE_INIT = 100000.0f; // Set the distance slab to a large value
 const float BfactorFactor = 1.0f;
 const int N_WATER_TERMS = 40;
 
-const float WATER_BFACTOR_PER_ELECTRON_PER_SQANG = 34.0f;
-const float PHASE_PLATE_BFACTOR = 20.0f;
+//const float WATER_BFACTOR_PER_ELECTRON_PER_SQANG = 34.0f;
+const float PHASE_PLATE_BFACTOR = 4.0f;
 const float inelastic_scalar_water = 0.0725f ; // this value is for 1 Apix. When not taking the sqrt (original but I think wrong approach) the value 0.75 worked
 
 // Parameters for calculating water. Because all waters are the same, except a sub-pixel origin offset. A SUB_PIXEL_NeL stack of projected potentials is pre-calculated with given offsets.
@@ -425,7 +425,7 @@ class SimulateApp : public MyApp
     float 		kV = 300.0f;
     float 		spherical_aberration = 2.7f;
     float 		objective_aperture = 100.0f;
-    float 		wavelength = 1.968697e-2; // Angstrom, default for 300kV
+    float 		wavelength = 0.0196869700756145f; // Angstrom, default for 300kV
 	float    	wanted_pixel_size = 0.0f;
 	float		wanted_pixel_size_sq = 0.0f;
 	float 		unscaled_pixel_size = 0.0f; // When there is a mag change
@@ -615,7 +615,7 @@ class SimulateApp : public MyApp
 	// The bond phase error is used to account for the remaining phase shift that is missing, due to all remaining scattering. The assumption is that amorphous water has >= the scattering due to delocalized electrons
 	float	BOND_PHASE_ERROR = 0.0;
 	// To account for the bond phase error in practice, a small scaling factor is applied to the atomic potentials
-	float	BOND_SCALING_FACTOR = 1.043; //1.0475;
+	float	BOND_SCALING_FACTOR = 1.038; //1.0475;
 	float	MEAN_INNER_POTENTIAL = 9.09; // for 1.75 g/cm^3 amorphous carbon as in Wanner & Tesche
 	bool	DO_PHASE_PLATE = false;
 
@@ -1003,7 +1003,7 @@ void SimulateApp::DoInteractiveUserInput()
 
 	 //	 this->lead_term = BOND_SCALING_FACTOR * this->wavelength / this->wanted_pixel_size_sq / 8.0f;
 	 	 // the 1/8 just comes from the integration of the gaussian which is too large by a factor of 2 in each dimension
-//	     BOND_SCALING_FACTOR = (BOND_SCALING_FACTOR - 1.0f) / wanted_pixel_size + 1.0f;
+	     BOND_SCALING_FACTOR = (BOND_SCALING_FACTOR - 1.0f) / wanted_pixel_size + 1.0f;
 	 	 this->lead_term = BOND_SCALING_FACTOR * this->wavelength  / 8.0f / wanted_pixel_size_sq;
 
 	 	 // The third term is a rough estiamte to ensure any delocalized info from particles is retained. It should probably also consider the stdErr
@@ -1136,7 +1136,7 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 	float wanted_astigmatism_azimuth = 0.0; // degrees
 	float astigmatism_angle_randomizer = 0.0; //
 	float defocus_randomizer = 0.0;
-	float wanted_additional_phase_shift_in_radians  = this->extra_phase_shift*PI;
+	float wanted_additional_phase_shift_in_radians  = this->extra_phase_shift*PIf;
     float *propagator_distance; // in Angstom, <= defocus tolerance.
     float defocus_offset = 0;
 
@@ -1376,7 +1376,7 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
     		else
     		{
         		tilt_psi[iTilt] = uniform_dist(gen)*360.0f; // *(2*PI);
-        		tilt_theta[iTilt] = std::acos(2.0f*uniform_dist(gen)-1.0f) * 180.0f/(float)PI;
+        		tilt_theta[iTilt] = std::acos(2.0f*uniform_dist(gen)-1.0f) * 180.0f/PIf;
         		tilt_phi[iTilt] = -1*tilt_psi[iTilt] + uniform_dist(gen)*360.0f; //*(2*PI);
 
         		shift_x[iTilt]  = this->stdErr * normal_dist(gen) * 3.0f; // should be in the low tens of Angstroms
@@ -1783,11 +1783,11 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 
 		if (this->tilt_series)
 		{
-			full_tilt_radians = PI/180.0f*(tilt_theta[iTilt]);
+			full_tilt_radians = PIf/180.0f*(tilt_theta[iTilt]);
 		}
 		else
 		{
-			full_tilt_radians = PI/180.0f*(euler2);
+			full_tilt_radians = PIf/180.0f*(euler2);
 		}
 
 		if (DO_PRINT) {wxPrintf("tilt angle in radians/deg %2.2e/%2.2e iFrame %d/%f\n",full_tilt_radians,tilt_theta[iTilt],iFrame,this->number_of_frames);}
@@ -3250,13 +3250,14 @@ void SimulateApp::calc_water_potential(Image *projected_water, AtomType wanted_a
 	AtomType atom_id;
 	if (DO_PHASE_PLATE)
 	{
-		atom_id = carbon;
+		atom_id = phosphorus;
 		bFactor = BfactorFactor * PHASE_PLATE_BFACTOR;
 		water_lead_term = this->lead_term;
 	}
 	else
 	{
-		bFactor = BfactorFactor * WATER_BFACTOR_PER_ELECTRON_PER_SQANG * this->dose_per_frame;
+//		bFactor = BfactorFactor * WATER_BFACTOR_PER_ELECTRON_PER_SQANG * this->dose_per_frame;
+		bFactor = BfactorFactor * 8.0f / 3.0f * PISQf * this->dose_per_frame;
 		water_lead_term = this->lead_term;
 
 		atom_id = SOLVENT_TYPE;
@@ -3617,7 +3618,7 @@ void SimulateApp::fill_water_potential(const PDB * current_specimen,Image *scatt
 		// The inelastic/elastic ratio for water gives a Zeff of carbon
 		if (DO_PHASE_PLATE)
 		{
-			oxygen_inelastic_to_elastic_ratio= sqrtf(( inelastic_scalar_water / sp.ReturnAtomicNumber(carbon)));
+			oxygen_inelastic_to_elastic_ratio= 0*sqrtf(( inelastic_scalar_water / sp.ReturnAtomicNumber(phosphorus)));
 
 		}
 		else
