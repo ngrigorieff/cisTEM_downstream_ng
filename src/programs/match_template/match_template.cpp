@@ -490,7 +490,7 @@ bool MatchTemplateApp::DoCalculation()
 	input_search_image_file.OpenFile(input_search_images_filename.ToStdString(), false);
 	input_reconstruction_file.OpenFile(input_reconstruction_filename.ToStdString(), false);
 
-	bool do_shift_blur_hack = true;
+	bool do_shift_blur_hack = false;
 	bool do_exposure_filter_hack = false;
 	float* shift_hack_x;
 	float* shift_hack_y;
