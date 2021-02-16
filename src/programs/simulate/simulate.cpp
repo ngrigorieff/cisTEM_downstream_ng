@@ -1630,7 +1630,6 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 	    // If negative ignore, otherwise make sure the solvent is at least this dimension. The actual padding including rotations are returned in these variables after initializeation.
 	    int padSpecimenX = wanted_output_size;
 	    int padSpecimenY = wanted_output_size;
-
 		if (padSpecimenX > 0)
 		{
 			int x_diff = current_specimen.vol_nX- padSpecimenX;
