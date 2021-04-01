@@ -117,6 +117,7 @@ void RefineTemplateApp::DoInteractiveUserInput()
 	float		high_resolution_limit = 8.0f;
 	float		angular_range = 2.0f;
 	float		angular_step = 5.0f;
+	int			number_of_steps = 0;
 	int			best_parameters_to_keep = 20;
 	float 		defocus_search_range = 1000;
 	float 		defocus_search_step = 10;
@@ -138,7 +139,7 @@ void RefineTemplateApp::DoInteractiveUserInput()
 
 	int			max_threads;
 
-	UserInput *my_input = new UserInput("RefineTemplate", 1.00);
+	UserInput *my_input = new UserInput("RefineTemplate", 1.01);
 
 	input_search_images = my_input->GetFilenameFromUser("Input images to be searched", "The input image stack, containing the images that should be searched", "image_stack.mrc", true);
 	input_reconstruction = my_input->GetFilenameFromUser("Input template reconstruction", "The 3D reconstruction from which projections are calculated", "reconstruction.mrc", true);
@@ -168,9 +169,10 @@ void RefineTemplateApp::DoInteractiveUserInput()
 	phase_shift = my_input->GetFloatFromUser("Phase shift (degrees)", "Additional phase shift in degrees", "0.0");
 //	low_resolution_limit = my_input->GetFloatFromUser("Low resolution limit (A)", "Low resolution limit of the data used for alignment in Angstroms", "300.0", 0.0);
 //	high_resolution_limit = my_input->GetFloatFromUser("High resolution limit (A)", "High resolution limit of the data used for alignment in Angstroms", "8.0", 0.0);
-//	angular_range = my_input->GetFloatFromUser("Angular refinement range", "AAngular range to refine", "2.0", 0.1);
+//	angular_range = my_input->GetFloatFromUser("Angular refinement range", "Angular range to refine", "2.0", 0.1);
 	angular_step = my_input->GetFloatFromUser("Out of plane angular step", "Angular step size for global grid search", "0.2", 0.01);
 	in_plane_angular_step = my_input->GetFloatFromUser("In plane angular step", "Angular step size for in-plane rotations during the search", "0.1", 0.01);
+	number_of_steps = my_input->GetIntFromUser("Number of angular steps to search", "The number of angular steps for a systematic grid search ", "0", 0);
 //	best_parameters_to_keep = my_input->GetIntFromUser("Number of top hits to refine", "The number of best global search orientations to refine locally", "20", 1);
 	defocus_search_range = my_input->GetFloatFromUser("Defocus search range (A) (0.0 = no search)", "Search range (-value ... + value) around current defocus", "200.0", 0.0);
 	defocus_search_step = my_input->GetFloatFromUser("Desired defocus accuracy (A)", "Accuracy to be achieved in defocus search", "10.0", 0.0);
@@ -217,7 +219,7 @@ void RefineTemplateApp::DoInteractiveUserInput()
 															high_resolution_limit,
 															angular_range,
 															angular_step,
-															best_parameters_to_keep,
+															number_of_steps,
 															defocus_search_range,
 															defocus_search_step,
 //															defocus_refine_step,
@@ -278,7 +280,8 @@ bool RefineTemplateApp::DoCalculation()
 	float		high_resolution_limit_search = my_current_job.arguments[10].ReturnFloatArgument();
 	float		angular_range = my_current_job.arguments[11].ReturnFloatArgument();
 	float		angular_step = my_current_job.arguments[12].ReturnFloatArgument();
-	int			best_parameters_to_keep = my_current_job.arguments[13].ReturnIntegerArgument();
+	int			number_of_steps = my_current_job.arguments[13].ReturnIntegerArgument();
+//	int			best_parameters_to_keep = my_current_job.arguments[13].ReturnIntegerArgument();
 	float 		defocus_search_range = my_current_job.arguments[14].ReturnFloatArgument();
 	float 		defocus_search_step = my_current_job.arguments[15].ReturnFloatArgument();
 //	float 		defocus_refine_step = my_current_job.arguments[15].ReturnFloatArgument();
@@ -449,6 +452,7 @@ bool RefineTemplateApp::DoCalculation()
 	float best_defocus_score;
 	float best_pixel_size_score;
 	int ii, jj, kk, ll;
+	int search_flag;
 	float mult_i;
 	float mult_i_start;
 	float defocus_step;
@@ -633,7 +637,8 @@ bool RefineTemplateApp::DoCalculation()
 //		wxPrintf("Searching %i rotations per peak.\n", number_of_rotations);
 //		wxPrintf("Calculating %li correlation total.\n\n", total_correlation_positions);
 
-		wxPrintf("\nPerforming refinement...\n\n");
+		if (number_of_steps > 0) wxPrintf("\nPerforming local search...\n\n");
+		else wxPrintf("\nPerforming refinement...\n\n");
 //		my_progress = new ProgressBar(total_correlation_positions);
 	}
 
@@ -666,12 +671,12 @@ bool RefineTemplateApp::DoCalculation()
 		mip_image, scaled_mip_image, phi_image, theta_image, psi_image, defocus_image, pixel_size_image, defocus_search_range, defocus_refine_step, pixel_size_search_range, \
 		pixel_size_refine_step, defocus1, defocus2, defocus_angle, angular_step, in_plane_angular_step, whitening_filter, input_reconstruction, min_peak_radius, best_mip, \
 		best_scaled_mip, best_phi, best_theta, best_psi, best_defocus, best_pixel_size, input_reconstruction_file, voltage_kV, spherical_aberration_mm, amplitude_contrast, \
-		phase_shift, max_threads, defocus_step, xy_change_threshold, exclude_above_xy_threshold, all_peak_changes, all_peak_infos) \
+		phase_shift, max_threads, defocus_step, xy_change_threshold, exclude_above_xy_threshold, all_peak_changes, all_peak_infos, number_of_steps) \
 	private(current_peak, padded_reference, windowed_particle, sq_dist_x, sq_dist_y, address, current_address, current_phi, current_theta, current_psi, current_defocus, \
 		current_pixel_size, best_score, phi_i, theta_i, psi_i, defocus_i, size_i, best_mip_local, best_scaled_mip_local, best_phi_local, best_theta_local, best_psi_local, \
 		best_defocus_local, best_pixel_size_local, template_object, mult_i_start, mult_i, ll, input_ctf, best_defocus_score, best_phi_score, best_theta_score, best_psi_score, \
 		kk, jj, ii, angles, score, address_offset, temp_float, projection_filter, template_peak, best_pixel_size_score, i, j, best_address, scaled_mip_image_local, peak_number, \
-		first_score, starting_score, size_is, defocus_is, score_adjustment, offset_distance, best_peak)
+		first_score, starting_score, size_is, defocus_is, score_adjustment, offset_distance, best_peak, search_flag)
 	{
 
 	input_ctf.Init(voltage_kV, spherical_aberration_mm, amplitude_contrast, defocus1, defocus2, defocus_angle, 0.0, 0.0, 0.0, pixel_size, deg_2_rad(phase_shift));
@@ -851,6 +856,8 @@ bool RefineTemplateApp::DoCalculation()
 					defocus_i = 0;
 //					score = best_score;
 
+					search_flag = 0;
+					if (number_of_steps > 0) search_flag = 1;
 					mult_i_start = defocus_step/defocus_refine_step;
 					for (mult_i = mult_i_start; mult_i > 0.5f; mult_i /= 2.0f)
 					{
@@ -867,27 +874,31 @@ bool RefineTemplateApp::DoCalculation()
 								projection_filter.CalculateCTFImage(input_ctf);
 								projection_filter.ApplyCurveFilter(&whitening_filter);
 
-								for (kk = 0; kk < 2; kk = -2 * kk + 1)
+								for (kk = -number_of_steps; kk < 2 + search_flag * (number_of_steps - 1); kk = (3 * search_flag - 2) * kk + 1)
 								{
 									do
 									{
 										best_phi_score = best_score;
-										phi_i += kk;
-										for (jj = 0; jj < 2; jj = -2 * jj + 1)
+										if (search_flag == 0) phi_i += kk;
+										else phi_i = kk;
+										for (jj = -number_of_steps; jj < 2 + search_flag * (number_of_steps - 1); jj = (3 * search_flag - 2) * jj + 1)
 										{
 											do
 											{
 												best_theta_score = best_score;
-												theta_i += jj;
-												for (ii = 0; ii < 2; ii = -2 * ii + 1)
+												if (search_flag == 0) theta_i += jj;
+												else theta_i = jj;
+												for (ii = -number_of_steps; ii < 2 + search_flag * (number_of_steps - 1); ii = (3 * search_flag - 2) * ii + 1)
 												{
 													do
 													{
 														best_psi_score = best_score;
-														psi_i += ii;
+														if (search_flag == 0) psi_i += ii;
+														else psi_i = ii;
 
 														angles.Init(current_phi + phi_i * angular_step, current_theta + theta_i * angular_step, current_psi + psi_i * in_plane_angular_step, 0.0, 0.0);
 
+//														if (search_flag > 0) wxPrintf("phi_i, theta_i, psi_i = %i %i %i\n", phi_i, theta_i, psi_i);
 														template_peak = TemplateScore(&template_object);
 														score = template_peak.value;
 														if (score > best_score)
@@ -914,14 +925,14 @@ bool RefineTemplateApp::DoCalculation()
 //															if (first_score == false) {first_score = true; starting_score = temp_float;}
 //															addresses[peak_number] = best_address;
 														}
-													} while (best_score > best_psi_score);
-													psi_i -= ii;
+													} while ((best_score > best_psi_score) && (search_flag == 0));
+													if (search_flag == 0) psi_i -= ii;
 												}
-											} while (best_score > best_theta_score);
-											theta_i -= jj;
+											} while ((best_score > best_theta_score) && (search_flag == 0));
+											if (search_flag == 0) theta_i -= jj;
 										}
-									} while (best_score > best_phi_score);
-									phi_i -= kk;
+									} while ((best_score > best_phi_score) && (search_flag == 0));
+									if (search_flag == 0) phi_i -= kk;
 								}
 							} while (best_score > best_defocus_score);
 							if (defocus_search_range != 0.0f) defocus_i -= ll;
