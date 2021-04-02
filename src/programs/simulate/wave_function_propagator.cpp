@@ -816,9 +816,9 @@ void WaveFunctionPropagator::ReturnImageContrast(Image &wave_function_sq_modulus
 	float known_astigmatism = (original_defocus1 - original_defocus2) / 2.0f * pixel_size;
 	float known_astigmatism_angle = rad_2_deg(ctf_for_fitting->GetAstigmatismAzimuth());
 
-	wxPrintf("Astigmatism params are %3.3e %3.3e\n", known_astigmatism, known_astigmatism_angle);
+	//wxPrintf("Astigmatism params are %3.3e %3.3e\n", known_astigmatism, known_astigmatism_angle);
 
-	wxPrintf("\t\t\n\nSEED is %lde\n\n", (long)my_rand.seed);
+	//wxPrintf("\t\t\n\nSEED is %lde\n\n", (long)my_rand.seed);
 
 
 
@@ -873,7 +873,7 @@ void WaveFunctionPropagator::ReturnImageContrast(Image &wave_function_sq_modulus
 			// Fixme change floats in params to ints.
 
 			myfile << "#!/bin/bash\n\n";
-			myfile << "ctffind << eof\n";
+			myfile << "ctffind << eof > /dev/null \n";
 			myfile << phase_name + "\n";
 			myfile << text_file_name + ".mrc\n";
 			myfile << std::to_string(pixel_size) + "\n";

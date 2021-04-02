@@ -64,56 +64,56 @@ void Water::Init(const PDB *current_specimen, int wanted_size_neighborhood, floa
 		int padZ = 0;
 		vol_nZ = current_specimen->vol_nZ;
 
-		wxPrintf("size pre rot padding %d %d %f rot\n", current_specimen->vol_nX, current_specimen->vol_nY, in_plane_rotation);
+		wxPrintf("\tsize in pixels pre rotational padding (x,y,z):(%d %d %d) at %f deg in-plane rotation rot\n", current_specimen->vol_nX, current_specimen->vol_nY, vol_nZ, in_plane_rotation);
 
 		if (! is_single_particle)
 		{
+			// Add padding to accound for rotations of slab like specimen. TODO this function is likely not optimal
 			ReturnPadding(max_rotation, in_plane_rotation, current_specimen->vol_nZ, current_specimen->vol_nX, current_specimen->vol_nY, padX, padY, &padZ);
 		}
+
 
 		vol_nX = current_specimen->vol_nX + (*padX);// + padZ; // This assumes the tilting is only around the Y-Axis which isn't correct FIXME
 		vol_nY = current_specimen->vol_nY + (*padY);
 		vol_nZ = current_specimen->vol_nZ;// + 2*padZ;
 
-
-
 //		wxPrintf("size post rot 1 padding %d %d %f rot\n", current_specimen->vol_nX, current_specimen->vol_nY, in_plane_rotation);
-		wxPrintf("size post rot 1 padding %d %d %f rot\n", vol_nX, vol_nY, in_plane_rotation);
+		wxPrintf("\tsize post rot 1 padding %d %d %f rot\n", vol_nX, vol_nY, in_plane_rotation);
 
-		if (check_min_paddingX > 0)
-		{
-			int x_diff = vol_nX - check_min_paddingX;
-			wxPrintf("Xdiff is %d\n",x_diff);
-			if (x_diff < 0)
-			{
-				vol_nX = check_min_paddingX;
-				*padX = -x_diff;
-			}
-			else
-			{
-				vol_nX = current_specimen->vol_nX;
-				*padX = 0;
-			}
+//		if (check_min_paddingX > 0)
+//		{
+//			int x_diff = vol_nX - check_min_paddingX;
+//			wxPrintf("\tXdiff is %d\n",x_diff);
+//			if (x_diff < 0)
+//			{
+//				vol_nX = check_min_paddingX;
+//				*padX = -x_diff;
+//			}
+//			else
+//			{
+//				vol_nX = current_specimen->vol_nX;
+//				*padX = 0;
+//			}
+//
+//		}
+//		if  (check_min_paddingY > 0)
+//		{
+//			int y_diff = vol_nY - check_min_paddingY;
+//			wxPrintf("\tyiff is %d\n",y_diff);
+//
+//			if (y_diff < 0)
+//			{
+//				vol_nY = check_min_paddingY;
+//				*padY = -y_diff;
+//			}
+//			else
+//			{
+//				vol_nY = current_specimen->vol_nY;
+//				*padY = 0;
+//			}
+//		}
 
-		}
-		if  (check_min_paddingY > 0)
-		{
-			int y_diff = vol_nY - check_min_paddingY;
-			wxPrintf("yiff is %d\n",y_diff);
-
-			if (y_diff < 0)
-			{
-				vol_nY = check_min_paddingY;
-				*padY = -y_diff;
-			}
-			else
-			{
-				vol_nY = current_specimen->vol_nY;
-				*padY = 0;
-			}
-		}
-
-		wxPrintf("size post rot 2 padding %d %d padX %d padY %d padZ %d rot\n",vol_nX, vol_nY, *padX, *padY, padZ);
+		wxPrintf("\tsize post rot 2 padding %d %d padX %d padY %d padZ %d rot\n",vol_nX, vol_nY, *padX, *padY, padZ);
 
 		MyAssertTrue(current_specimen->pixel_size > 0.0f, "The pixel size for your PDB object is not yet set.");
 		// Copy over some values from the current specimen - Do these need to be updated for tilts and rotations?
@@ -123,7 +123,7 @@ void Water::Init(const PDB *current_specimen, int wanted_size_neighborhood, floa
 
 	}
 
-	wxPrintf("vol dimension in Ang %2.2f x %2.2f y  %2.2f z\n", this->vol_angX , this->vol_angY , this->vol_angZ);
+	wxPrintf("\tvol dimension in Ang %2.2f x %2.2f y  %2.2f z\n", this->vol_angX , this->vol_angY , this->vol_angZ);
 
 
 	this->vol_oX = floor(this->vol_nX / 2);

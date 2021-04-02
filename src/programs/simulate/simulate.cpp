@@ -1413,22 +1413,25 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 
 
     // I don't think the frames need to be saved in these first two stacks. Rather they are accumulated
-	Image *img_frame;
-	Image *ref_frame;
-	Image *output_image_stack;
-	Image *output_reference_stack;
+	Image*  img_frame;
+	Image*  ref_frame;
+	Image**  output_image_stack;
+	Image**  output_reference_stack;
 	RotationMatrix particle_rot;
 
 
 	// Whether we save frames or only sums, make the array of image pointers full (frames.)
 	// Output will be a stack of particles (not frames)
 	img_frame = new Image[1];
-	output_image_stack = new Image[number_of_images*(int)this->number_of_frames];
+	output_image_stack = new Image*[number_of_images];
+	for (int iPointer = 0; iPointer < int(number_of_frames); iPointer++) output_image_stack[iPointer] = new Image[int(number_of_frames)];
 
 	if (SAVE_REF)
 	{
 		ref_frame = new Image[1] ;
-		output_reference_stack = new Image[number_of_images*(int)this->number_of_frames];
+		output_reference_stack = new Image*[number_of_images];
+		for (int iPointer = 0; iPointer < int(number_of_frames); iPointer++) output_reference_stack[iPointer] = new Image[int(number_of_frames)];
+
 	}
 
 
@@ -1627,50 +1630,51 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 	    //////////
 	    ///////////////////////////////////////////////////////////////////////////////
 
-	    // If negative ignore, otherwise make sure the solvent is at least this dimension. The actual padding including rotations are returned in these variables after initializeation.
-	    int padSpecimenX = wanted_output_size;
-	    int padSpecimenY = wanted_output_size;
+	    // If negative ignore, otherwise make sure the solvent is at least this dimension. The actual padding including rotations are returned in these variables after initialization.
+	    // This is confusing, because the hack to specify this is to set the do3d to some number < 0, if not, then wanted_output_size < 0 otherwise wanted_output_size = fabsf(do3d)
+	    // FIXME make this a proper parameter
+	    int padSpecimenX = 0;
+	    int padSpecimenY = 0;
 
-		if (padSpecimenX > 0)
+
+		if (wanted_output_size > 0)
 		{
-			int x_diff = current_specimen.vol_nX- padSpecimenX;
-			if (x_diff < 0)
-			{
-				padSpecimenX= -x_diff;
-			}
+			padSpecimenX = wanted_output_size - current_specimen.vol_nX;
+			padSpecimenY = wanted_output_size - current_specimen.vol_nY;
+
+			// Even if we end up trimming the thing, the water should be at least as big as the specimen
+			padSpecimenX = std::max(padSpecimenX, 0);
+			padSpecimenY = std::max(padSpecimenY, 0);
+
 
 		}
-		else padSpecimenX = 0;
-		if  (padSpecimenY > 0)
-		{
-			int y_diff = current_specimen.vol_nY - padSpecimenY;
-			if (y_diff < 0)
-			{
-				padSpecimenY = -y_diff;
-			}
-		}
-		else padSpecimenY = 0;
-
+		// Also include extra water for the border that will be trimmed at the end
 		padSpecimenX += N_TAPERS*TAPERWIDTH;
 		padSpecimenY += N_TAPERS*TAPERWIDTH;
-
-		// Set the minimum specimen volume to allow trimming of the tapered region. Note that the z dimension must be set on each slab, it is ignored for 2d
-		coords.SetSpecimenVolume(current_specimen.vol_nX, current_specimen.vol_nY, current_specimen.vol_nZ);
-		coords.SetSolventPadding(current_specimen.vol_nX + padSpecimenX, current_specimen.vol_nY + padSpecimenY, current_specimen.vol_nZ);
-		 wxPrintf("\n\n\t\twanted size is %d\n\n",padSpecimenX);
-
 
 
 		 // TODO put me at the top
 		const int fft_max_factor = 5;
 		const int fft_max_padding_factor = 1;
+		if (iFrame == 0)
+		{
+			// Set the minimum specimen volume to allow trimming of the tapered region. Note that the z dimension must be set on each slab, it is ignored for 2d
+			coords.SetSpecimenVolume(current_specimen.vol_nX, current_specimen.vol_nY, current_specimen.vol_nZ);
+			coords.SetSolventPadding(current_specimen.vol_nX + padSpecimenX, current_specimen.vol_nY + padSpecimenY, current_specimen.vol_nZ);
+			coords.SetFFTPadding(fft_max_factor, fft_max_padding_factor);
+
+			 wxPrintf("\n\n\t\twanted size is %d\n\n",padSpecimenX);
+		}
+
+
+
 	    timer.start("Calc H20 Box");
 	    if (iTilt == 0 && iFrame == 0)
 	    {
 	    	bool is_single_particle;
 	    	if (this->tilt_series || this->doParticleStack == 0) is_single_particle = false;
 	    	else is_single_particle = true;
-	    	wxPrintf("Is single particle is %d\n", is_single_particle);
+	    	wxPrintf("\n\nPadding water box:\n\tIs single particle is %d\n", is_single_particle);
 		    water_box.Init( &current_specimen,this->size_neighborhood_water, this->wanted_pixel_size, this->dose_per_frame, max_rotation, tilt_axis, &padSpecimenX, &padSpecimenY, number_of_threads, is_single_particle);
 	    }
 	    timer.lap("Calc H20 Box");
@@ -1678,7 +1682,6 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 	    // Previously I was padding the specimen by the padding needed for in plane rotation. With all rotations in the water padding, this shouldn't be needed.
 
 //		coords.SetSolventPadding(water_box.vol_nX, water_box.vol_nY, water_box.vol_nZ);
-		coords.SetFFTPadding(fft_max_factor, fft_max_padding_factor);
 
 
 
@@ -1713,7 +1716,7 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 					            0.514f * expf(-1.0f*powf((iFrame*dose_per_frame-3.21f  )/7.214f,2))) * (0.25f + 0.75f*iTilt);
 
 		total_drift += 0.0f;//iDrift/sqrt(2);
-		wxPrintf("\n\tDrift for iTilt %d, iFrame %d is %4.4f Ang\n",iTilt,iFrame,total_drift);
+//		wxPrintf("\n\nDrift for iTilt %d, iFrame %d is %4.4f Ang\n",iTilt,iFrame,total_drift);
 //		current_specimen.TransformGlobalAndSortOnZ(number_of_non_water_atoms, total_drift, total_drift, 0.0f, rotate_waters);
 		// TODO incororate the drift;
 
@@ -1773,10 +1776,10 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 //		else if ( ! ONLY_SAVE_SUMS )
 //		{
 			// Only allocate the other images if saving frames
-			coords.Allocate(&output_image_stack[iTilt*(int)number_of_frames + iFrame],(PaddingStatus)fft, true, true);
+			coords.Allocate(&output_image_stack[iTilt][iFrame],(PaddingStatus)fft, true, true);
 			if (SAVE_REF)
 			{
-				coords.Allocate(&output_reference_stack[iTilt*(int)number_of_frames + iFrame],(PaddingStatus)fft, true, true);
+				coords.Allocate(&output_reference_stack[iTilt][iFrame],(PaddingStatus)fft, true, true);
 			}
 //
 //		}
@@ -2662,6 +2665,7 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 
 		timer.start("Delete potential");
 		delete [] scattering_potential;
+		delete [] inelastic_potential;
 		if (SAVE_REF)
 		{
 			delete [] ref_potential;
@@ -2698,11 +2702,11 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 		}
 
 
-		output_image_stack[iTilt*(int)number_of_frames + iFrame].CopyFrom(img_frame);
+		output_image_stack[iTilt][iFrame].CopyFrom(img_frame);
 
 		if (SAVE_REF)
 		{
-			output_reference_stack[iTilt*(int)number_of_frames + iFrame].CopyFrom(ref_frame);
+			output_reference_stack[iTilt][iFrame].CopyFrom(ref_frame);
 		}
 
 
@@ -2723,11 +2727,16 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 
 	if (DO_EXPOSURE_FILTER_FINAL_IMG )
 	{
-		// sum the frames
+		// sum the frames TODO confirm all frames are going to be the same size
 		float final_img_exposure;
-		float *dose_filter;
-		float *dose_filter_sum_of_squares = new float[output_image_stack[0].real_memory_allocated / 2];
-		ZeroFloatArray(dose_filter_sum_of_squares, output_image_stack[0].real_memory_allocated/2);
+
+		float *dose_filter_sum_of_squares = new float[output_image_stack[0][0].real_memory_allocated / 2];
+		ZeroFloatArray(dose_filter_sum_of_squares, output_image_stack[0][0].real_memory_allocated/2);
+
+
+		wxPrintf("Allocating the dose filter with %ld mem\n",output_image_stack[0][0].real_memory_allocated / 2);
+		float *dose_filter = new float[output_image_stack[0][0].real_memory_allocated / 2];
+
 		ElectronDose my_electron_dose(wanted_acceleration_voltage, this->wanted_pixel_size);
 
 		float local_pre_exposure = pre_exposure;
@@ -2736,43 +2745,49 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 		for (int iFrame = 0; iFrame < this->number_of_frames; iFrame++)
 		{
 
+
+			// It might be easier to have a pointer to a stack of particles, which is then a pointer to a stack of frames
 			int this_frame = iTilt*(int)number_of_frames + iFrame;
 
-			dose_filter = new float[output_image_stack[this_frame].real_memory_allocated / 2];
-			ZeroFloatArray(dose_filter, output_image_stack[this_frame].real_memory_allocated / 2);
+			wxPrintf("This frame (%d) has this much mem %ld\n", this_frame, output_image_stack[iTilt][iFrame].real_memory_allocated / 2);
+
+//
+//			dose_filter = new float[output_image_stack[this_frame].real_memory_allocated / 2];
+			ZeroFloatArray(dose_filter, output_image_stack[iTilt][iFrame].real_memory_allocated / 2);
 
 
 			// Forward FFT
-			output_image_stack[this_frame].ForwardFFT(true);
-			if (EXPOSURE_FILTER_REF && SAVE_REF) output_reference_stack[this_frame].ForwardFFT(true);
+			output_image_stack[iTilt][iFrame].ForwardFFT(true);
+			if (EXPOSURE_FILTER_REF && SAVE_REF) output_reference_stack[iTilt][iFrame].ForwardFFT(true);
 
 
-			my_electron_dose.CalculateDoseFilterAs1DArray(&output_image_stack[this_frame], dose_filter, local_pre_exposure, local_pre_exposure + this->dose_per_frame );
+			my_electron_dose.CalculateDoseFilterAs1DArray(&output_image_stack[iTilt][iFrame], dose_filter, local_pre_exposure, local_pre_exposure + this->dose_per_frame );
 			local_pre_exposure += this->dose_per_frame;
 
 
-			for (long pixel_counter = 0; pixel_counter < output_image_stack[this_frame].real_memory_allocated / 2; pixel_counter++)
+			for (long pixel_counter = 0; pixel_counter < output_image_stack[iTilt][iFrame].real_memory_allocated / 2; pixel_counter++)
 			{
 
-				output_image_stack[this_frame].complex_values[pixel_counter] *= dose_filter[pixel_counter];
-				if (EXPOSURE_FILTER_REF && SAVE_REF) output_reference_stack[this_frame].complex_values[pixel_counter] *=  dose_filter[pixel_counter];
+				output_image_stack[iTilt][iFrame].complex_values[pixel_counter] *= dose_filter[pixel_counter];
+				if (EXPOSURE_FILTER_REF && SAVE_REF) output_reference_stack[iTilt][iFrame].complex_values[pixel_counter] *=  dose_filter[pixel_counter];
 
 				dose_filter_sum_of_squares[pixel_counter] += powf(dose_filter[pixel_counter],2);
 			}
 
 
-			delete [] dose_filter;
+//			delete [] dose_filter;
 
 			if (ONLY_SAVE_SUMS)
 			{
 				// Accumulate all subsequent frames in the first frame of the output image stack
-				output_image_stack[iTilt*(int)number_of_frames].AddImage(&output_image_stack[this_frame]);
+				output_image_stack[iTilt][iFrame].AddImage(&output_image_stack[iTilt][iFrame]);
 				if (SAVE_REF)
 				{
-				  output_reference_stack[iTilt*(int)number_of_frames].AddImage(&output_reference_stack[this_frame]);
+				  output_reference_stack[iTilt][iFrame].AddImage(&output_reference_stack[iTilt][iFrame]);
 				}
 			}
-
+			delete [] dose_filter;
+			delete [] dose_filter_sum_of_squares;
 		} // end of loop on frames, exposure filter applied and sq exp in mem
 
 		int exposure_filter_range;
@@ -2781,24 +2796,22 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 
 		for (int iFrame = 0; iFrame < exposure_filter_range; iFrame ++)
 		{
-			int this_frame = iTilt*(int)number_of_frames + iFrame;
-			for (long pixel_counter = 0; pixel_counter < output_image_stack[this_frame].real_memory_allocated / 2; pixel_counter++)
+			for (long pixel_counter = 0; pixel_counter < output_image_stack[iTilt][iFrame].real_memory_allocated / 2; pixel_counter++)
 			{
-				output_image_stack[this_frame].complex_values[pixel_counter] /= sqrtf(dose_filter_sum_of_squares[pixel_counter]);
+				output_image_stack[iTilt][iFrame].complex_values[pixel_counter] /= sqrtf(dose_filter_sum_of_squares[pixel_counter]);
 				if (SAVE_REF)
 				{
-					output_reference_stack[this_frame].complex_values[pixel_counter] /= sqrtf(dose_filter_sum_of_squares[pixel_counter]);
+					output_reference_stack[iTilt][iFrame].complex_values[pixel_counter] /= sqrtf(dose_filter_sum_of_squares[pixel_counter]);
 				}
 
 			}
 
-			output_image_stack[this_frame].BackwardFFT();
-			if (SAVE_REF) output_reference_stack[this_frame].BackwardFFT();
+			output_image_stack[iTilt][iFrame].BackwardFFT();
+			if (SAVE_REF) output_reference_stack[iTilt][iFrame].BackwardFFT();
  		}
 
+		wxPrintf("De-allocating the dose filter with %ld mem\n",output_image_stack[0][0].real_memory_allocated / 2);
 
-
-		delete [] dose_filter_sum_of_squares;
 
 	}
 	else if (ONLY_SAVE_SUMS)
@@ -2806,10 +2819,10 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 		// The summing of frames is handled with exposure filter application, unless it is not called for.
 		for (int iFrame = 1; iFrame < this->number_of_frames; iFrame++)
 		{
-			output_image_stack[iTilt*(int)number_of_frames].AddImage(&output_image_stack[iTilt*(int)number_of_frames + iFrame]);
+			output_image_stack[iTilt][iFrame].AddImage(&output_image_stack[iTilt][iFrame]);
 			if (SAVE_REF)
 			{
-			  output_reference_stack[iTilt*(int)number_of_frames].AddImage(&output_reference_stack[iTilt*(int)number_of_frames + iFrame]);
+			  output_reference_stack[iTilt][iFrame].AddImage(&output_reference_stack[iTilt][iFrame]);
 			}
 		}
 
@@ -2902,95 +2915,100 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 //	else final_tilt_range = number_of_images * (int)this->number_of_frames;
 	int final_tilt_inc = 1;
 	int n_tilts_saved = 0;
-	if (ONLY_SAVE_SUMS) final_tilt_inc = this->number_of_frames;
 
 
-	for (int iImg=0; iImg < number_of_images*(int)this->number_of_frames; iImg+=final_tilt_inc)
+	for (int iImg=0; iImg < number_of_images; iImg++)
 	{
-
-		wxPrintf("save sums inc saved i %d %d %d %d\n", ONLY_SAVE_SUMS, final_tilt_inc, n_tilts_saved, iImg);
-		// I am getting some nans on occassion, but so far they only show up in big expensive calcs, so add a nan check and print info to see if
-		// the problem can be isolated.
-		if (output_image_stack[iImg].HasNan() == true)
-		{
-			wxPrintf("Frame %d / %d has NaN values, trashing it\n",iImg,number_of_images*(int)this->number_of_frames);
-			output_image_stack[iImg].SetToConstant(0.0f);
-			continue;
-		}
-
-
-		if (CORRECT_CTF)
+		for (int iFrame = 0; iFrame < (int)this->number_of_frames; iFrame++)
 		{
 
-			my_ctf.Init(parameter_star.ReturnMicroscopekV(n_tilts_saved),
-						parameter_star.ReturnMicroscopeCs(n_tilts_saved),
-						parameter_star.ReturnAmplitudeContrast(n_tilts_saved),
-						parameter_star.ReturnDefocus1(n_tilts_saved),
-						parameter_star.ReturnDefocus2(n_tilts_saved),
-						parameter_star.ReturnDefocusAngle(n_tilts_saved),
-						parameter_star.ReturnPhaseShift(n_tilts_saved),
-						parameter_star.ReturnPixelSize(n_tilts_saved));
-
-		}
-
-		coords.PadToWantedSize(&output_image_stack[iImg], wanted_output_size);
-		if (SAVE_REF) {	coords.PadToWantedSize(&output_reference_stack[iImg],wanted_output_size); }
-
-
-
-		if (WHITEN_IMG)
-		{
-
-			output_image_stack[iImg].ForwardFFT(true);
-			output_image_stack[iImg].ZeroCentralPixel();
-			output_image_stack[iImg].Compute1DPowerSpectrumCurve(&whitening_filter, &number_of_terms);
-			whitening_filter.SquareRoot();
-			whitening_filter.Reciprocal();
-			whitening_filter.MultiplyByConstant(1.0f / whitening_filter.ReturnMaximumValue());
-
-			//whitening_filter.WriteToFile("/tmp/filter.txt");
-			output_image_stack[iImg].ApplyCurveFilter(&whitening_filter);
-			output_image_stack[iImg].ZeroCentralPixel();
-
-
-			output_image_stack[iImg].DivideByConstant(sqrtf(output_image_stack[iImg].ReturnSumOfSquares()));
-			output_image_stack[iImg].BackwardFFT();
-
-			if (SAVE_REF)
+			// I am getting some nans on occassion, but so far they only show up in big expensive calcs, so add a nan check and print info to see if
+			// the problem can be isolated.
+			if (output_image_stack[iImg][iFrame].HasNan() == true)
 			{
-
-				output_reference_stack[iImg].ForwardFFT(true);
-				output_reference_stack[iImg].ZeroCentralPixel();
-				output_reference_stack[iImg].ApplyCurveFilter(&whitening_filter);
-				output_reference_stack[iImg].ZeroCentralPixel();
-				if (CORRECT_CTF) {output_reference_stack[iImg].ApplyCTF(my_ctf,false,false) ;} // TODO is this the right spot to put this?
-				output_reference_stack[iImg].DivideByConstant(sqrt(output_reference_stack[iImg].ReturnSumOfSquares()));
-				output_reference_stack[iImg].BackwardFFT();
+				wxPrintf("Frame %d / %d has NaN values, trashing it\n",iImg,number_of_images*(int)this->number_of_frames);
+				output_image_stack[iImg][iFrame].SetToConstant(0.0f);
+				continue;
 			}
 
-		}
-		else
-		{
 
 			if (CORRECT_CTF)
 			{
-				output_image_stack[iImg].ForwardFFT(true);
-				output_image_stack[iImg].ApplyCTF(my_ctf,false,false) ;
-				output_image_stack[iImg].BackwardFFT();
 
-			} // TODO is this the right spot to put this?
+				my_ctf.Init(parameter_star.ReturnMicroscopekV(n_tilts_saved),
+							parameter_star.ReturnMicroscopeCs(n_tilts_saved),
+							parameter_star.ReturnAmplitudeContrast(n_tilts_saved),
+							parameter_star.ReturnDefocus1(n_tilts_saved),
+							parameter_star.ReturnDefocus2(n_tilts_saved),
+							parameter_star.ReturnDefocusAngle(n_tilts_saved),
+							parameter_star.ReturnPhaseShift(n_tilts_saved),
+							parameter_star.ReturnPixelSize(n_tilts_saved));
 
-		}
+			}
 
-		output_image_stack[iImg].WriteSlices(&mrc_out_final,1+n_tilts_saved,1+n_tilts_saved);
-		if (SAVE_REF)
-		{
-			output_reference_stack[iImg].WriteSlices(&mrc_ref_final,1+n_tilts_saved,1+n_tilts_saved);
-		}
+			coords.PadToWantedSize(&output_image_stack[iImg][iFrame], wanted_output_size);
+			if (SAVE_REF) {	coords.PadToWantedSize(&output_reference_stack[iImg][iFrame],wanted_output_size); }
 
-		n_tilts_saved++;
 
-	}
+
+			if (WHITEN_IMG)
+			{
+
+				output_image_stack[iImg][iFrame].ForwardFFT(true);
+				output_image_stack[iImg][iFrame].ZeroCentralPixel();
+				output_image_stack[iImg][iFrame].Compute1DPowerSpectrumCurve(&whitening_filter, &number_of_terms);
+				whitening_filter.SquareRoot();
+				whitening_filter.Reciprocal();
+				whitening_filter.MultiplyByConstant(1.0f / whitening_filter.ReturnMaximumValue());
+
+				//whitening_filter.WriteToFile("/tmp/filter.txt");
+				output_image_stack[iImg][iFrame].ApplyCurveFilter(&whitening_filter);
+				output_image_stack[iImg][iFrame].ZeroCentralPixel();
+
+
+				output_image_stack[iImg][iFrame].DivideByConstant(sqrtf(output_image_stack[iImg][iFrame].ReturnSumOfSquares()));
+				output_image_stack[iImg][iFrame].BackwardFFT();
+
+				if (SAVE_REF)
+				{
+
+					output_reference_stack[iImg][iFrame].ForwardFFT(true);
+					output_reference_stack[iImg][iFrame].ZeroCentralPixel();
+					output_reference_stack[iImg][iFrame].ApplyCurveFilter(&whitening_filter);
+					output_reference_stack[iImg][iFrame].ZeroCentralPixel();
+					if (CORRECT_CTF) {output_reference_stack[iImg][iFrame].ApplyCTF(my_ctf,false,false) ;} // TODO is this the right spot to put this?
+					output_reference_stack[iImg][iFrame].DivideByConstant(sqrt(output_reference_stack[iImg][iFrame].ReturnSumOfSquares()));
+					output_reference_stack[iImg][iFrame].BackwardFFT();
+				}
+
+
+			}
+			else
+			{
+
+				if (CORRECT_CTF)
+				{
+					output_image_stack[iImg][iFrame].ForwardFFT(true);
+					output_image_stack[iImg][iFrame].ApplyCTF(my_ctf,false,false) ;
+					output_image_stack[iImg][iFrame].BackwardFFT();
+
+				} // TODO is this the right spot to put this?
+
+			}
+
+			output_image_stack[iImg][iFrame].WriteSlices(&mrc_out_final,1+n_tilts_saved,1+n_tilts_saved);
+			if (SAVE_REF)
+			{
+				output_reference_stack[iImg][iFrame].WriteSlices(&mrc_ref_final,1+n_tilts_saved,1+n_tilts_saved);
+			}
+
+			n_tilts_saved++;
+
+			// In this case, we only care about the first frame, which has aggregated all the others.
+			if (ONLY_SAVE_SUMS) continue;
+
+		} // loop over saving frames
+	} // loop over images
 
 
 
@@ -3012,9 +3030,20 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 	delete [] shift_x;
 	delete [] shift_y;
 	delete [] shift_z;
+	delete [] mag_diff;
 
 
     delete [] img_frame;
+
+	for (int iPointer = 0; iPointer < int(number_of_frames); iPointer++) delete[] output_image_stack[iPointer];
+    delete [] output_image_stack;
+
+	if (SAVE_REF)
+	{
+		delete [] ref_frame;
+		for (int iPointer = 0; iPointer < int(number_of_frames); iPointer++) delete[] output_reference_stack[iPointer];
+		delete [] output_reference_stack;
+	}
 
  //   delete noise_dist;
     timer.lap("Final mods and save");
