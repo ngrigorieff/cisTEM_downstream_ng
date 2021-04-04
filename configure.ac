@@ -32,13 +32,23 @@ AC_MSG_NOTICE([Setting up initial flags])
 
 
 # check to see if compiler warnings are desired.
-WALLON=""
-AC_ARG_WITH([warnings-on], [Enable compiler warnings], [WALLON="-Wall"])
+
+AC_ARG_ENABLE([disable-warnings], AS_HELP_STRING([--disable compiler warnings], [Default=false]), [
+	if test "x$enableval" = "no" ; then
+		WALLON=""
+		AC_MSG_NOTICE([DISABLE VAL $enableval])
+		
+	else
+		WALLON="-Wall"
+				AC_MSG_NOTICE([ELSE VAL $enableval])
+		
+	fi
+], [WALLON="-Wall"])
 
 
 if test "x$CXX" = "xicpc"; then		
-	CXXFLAGS="$CXXFLAGS -O3 -no-prec-div -no-prec-sqrt -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -std=c++11 -w2 -wd1125"
-	CPPFLAGS="$CPPFLAGS -O3 -no-prec-div -no-prec-sqrt -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE"
+	CXXFLAGS="$CXXFLAGS -O3 -no-prec-div -no-prec-sqrt $WALLON -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -std=c++11 -w2 -wd1125"
+	CPPFLAGS="$CPPFLAGS -O3 -no-prec-div -no-prec-sqrt $WALLON -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE"
 else
 	CXXFLAGS="$CXXFLAGS -DNDEBUG -funroll-loops -O3 -pipe $WALLON -fexpensive-optimizations -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -std=c++11"		
 	CPPFLAGS="$CPPFLAGS -DNDEBUG -funroll-loops -O3 -pipe $WALLON -fexpensive-optimizations -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE"
@@ -78,17 +88,19 @@ AM_CONDITIONAL([WINDOWS_AM], [test "$build_windows" = "yes"])
 AM_CONDITIONAL([OSX_AM], [test "$build_mac" = "yes"])
 
 # Use all available processor instruction sets
-AC_ARG_ENABLE(latest-instruction-set, [  --enable-latest-instruction-set     Use latest available CPU instruction set [[default=yes]]],[
+AC_ARG_ENABLE(latest-instruction-set, AS_HELP_STRING([--enable-latest-instruction-set],[Use latest available CPU instruction set [default=yes]]),[
+        AC_MSG_ERROR(["Enable val by default is $enableval"])
+
   if test "$enableval" = yes; then
 	if test "x$CXX" = "xicpc"; then	
 		CXXFLAGS="$CXXFLAGS -xHost"
 	fi
   fi
-  ])
+])
 
-# MKL
+# MKL FIXME this looks like it is duplicated at line 134
 
-AC_ARG_ENABLE(mkl, [  --disable-mkl           Do not use the Intel MKL ],[
+AC_ARG_ENABLE(mkl, AS_HELP_STRING([--disable-mkl],[Do not use the Intel MKL]),[
   if test "$enableval" = no; then
         use_mkl=0
   fi])
@@ -98,7 +110,7 @@ AC_ARG_ENABLE(mkl, [  --disable-mkl           Do not use the Intel MKL ],[
 
 static_link="false"
 
-AC_ARG_ENABLE(staticmode, [  --enable-staticmode     Link statically [[default=no]]],[
+AC_ARG_ENABLE(staticmode, AS_HELP_STRING([--enable-staticmode],[Link statically [default=no]]),[
   if test "$enableval" = yes; then
 	static_link="true"
 	WXCONFIGFLAGS="--static=yes"
@@ -114,8 +126,8 @@ AM_CONDITIONAL([STATIC_LINKING_AM],[test x$static_link = xtrue])
 
 WXCONFIG=wx-config
 AC_ARG_WITH(wx-config,
-[[  --with-wx-config=FILE   Use the given path to wx-config when determining
-                          wxWidgets configuration; defaults to "wx-config"]],
+AS_HELP_STRING([--with-wx-config=FILE],[Use the given path to wx-config when determining
+                          wxWidgets configuration; defaults to "wx-config"]),
 [
     if test "$withval" != "yes" -a "$withval" != ""; then
         WXCONFIG=$withval
@@ -126,18 +138,18 @@ AC_ARG_WITH(wx-config,
 
 use_mkl=1
 
-AC_ARG_ENABLE(mkl, [  --disable-mkl           Do not use the Intel MKL ],[
+AC_ARG_ENABLE(mkl, AS_HELP_STRING([--disable-mkl],[Do not use the Intel MKL]),[
   if test "$enableval" = no; then
   	use_mkl=0
   fi])
 
 # debugmode
 
-AC_ARG_ENABLE(debugmode, [  --enable-debugmode      Compile in debug mode [[default=no]]],[
+AC_ARG_ENABLE(debugmode, AS_HELP_STRING([--enable-debugmode],[Compile in debug mode [default=no]]),[
   if test "$enableval" = yes; then
   if test "x$CXX" = "xicpc"; then   
-    CXXFLAGS="-O2 -debug -no-prec-div -no-prec-sqrt -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -DDEBUG -std=c++11 -w2 -wd1125"
-    CPPFLAGS="-O2 -debug -no-prec-div -no-prec-sqrt -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -DDEBUG"
+    CXXFLAGS="-O2 -debug -no-prec-div -no-prec-sqrt $WALLON -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -DDEBUG -std=c++11 -w2 -wd1125"
+    CPPFLAGS="-O2 -debug -no-prec-div -no-prec-sqrt $WALLON -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -DDEBUG"
   else
     CPPFLAGS="-O2 -g -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -DDEBUG $WALLON $INPUT_CPPFLAGS"
     CXXFLAGS="-O2 -g -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -DDEBUG -std=c++11 $WALLON $INPUT_CXXFLAGS"
@@ -173,8 +185,8 @@ AM_CONDITIONAL([ENABLEGPU_AM], [test "$want_cuda" = "yes"])
 # fftw
 
 AC_ARG_WITH(fftw-dir,
-[[  --with-fftw-dir=DIR     Declare the root directory of fftw3, if its 
-                          current location is not system accessible ]],
+AS_HELP_STRING([--with-fftw-dir=DIR],[Declare the root directory of fftw3, if its 
+                          current location is not system accessible ]),
 [
     if test "$withval" != "yes" -a "$withval" != ""; then
         CPPFLAGS="$CPPFLAGS -I$withval/include -L$withval/lib"
@@ -185,7 +197,7 @@ AC_ARG_WITH(fftw-dir,
 
 # experimental
 
-AC_ARG_ENABLE(experimental, [  --enable-experimental  Compile with experimental [[default=no]]],[
+AC_ARG_ENABLE(experimental, AS_HELP_STRING([--enable-experimental],[Compile with experimental [default=no]]),[
   if test "$enableval" = yes; then
   CPPFLAGS="$CPPFLAGS -DEXPERIMENTAL"
   CXXFLAGS="$CXXFLAGS -DEXPERIMENTAL"
@@ -195,7 +207,7 @@ AC_ARG_ENABLE(experimental, [  --enable-experimental  Compile with experimental 
  
 #rigorous socket check 
 
-AC_ARG_ENABLE(rigorous-sockets, [  --enable-rigorous-sockets  Use rigorous socket checking [[default=no]]],[
+AC_ARG_ENABLE(rigorous-sockets, AS_HELP_STRING([--enable-rigorous-sockets],[Use rigorous socket checking [default=no]]),[
   if test "$enableval" = yes; then
   CPPFLAGS="$CPPFLAGS -DRIGOROUS_SOCKET_CHECK"
   CXXFLAGS="$CXXFLAGS -DRIGOROUS_SOCKET_CHECK"  
@@ -205,7 +217,7 @@ AC_ARG_ENABLE(rigorous-sockets, [  --enable-rigorous-sockets  Use rigorous socke
 AM_CONDITIONAL([EXPERIMENTAL_AM],[test x$compile_experimental = xtrue])
 
 # OpenMP
-AC_ARG_ENABLE(openmp, [  --enable-openmp  Compile with OpenMP threading [[default=no]]],[
+AC_ARG_ENABLE(openmp, AS_HELP_STRING([--enable-openmp],[Compile with OpenMP threading [default=no]]),[
   if test "$enableval" = yes; then
   AC_OPENMP([],AC_MSG_ERROR("You asked for OpenMP, but I was not able to figure out how to compile programs that use OpenMP"))
   CXXFLAGS="$CXXFLAGS $OPENMP_CXXFLAGS"

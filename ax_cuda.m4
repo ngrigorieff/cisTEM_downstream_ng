@@ -181,7 +181,7 @@ fi
 
 # This is the code that will be generated at compile time and should be specified for the most used gpu 
 target_arch=""
-AC_ARG_WITH([target-gpu-arch], AS_HELP_STRING([--with-target-gpu-arch@<:@=yes|no|DIR@:>@], [Primary architecture to compile for (default=86)]),
+AC_ARG_WITH([target-gpu-arch], AS_HELP_STRING([--with-target-gpu-arch@<:@=60,61,70,75,80,86@:>@], [Primary architecture to compile for (default=86)]),
 [
 	if test "$withval" = "86" ; then target_arch=86 
 	elif  test "$withval" = "80" ; then target_arch=80
@@ -202,7 +202,7 @@ NVCCFLAGS+=" --gpu-architecture=sm_$target_arch -gencode=arch=compute_$target_ar
 
 # This is the oldest arch that will have JIT-able code g
 oldest_arch=""
-AC_ARG_WITH([oldest-gpu-arch], AS_HELP_STRING([--with-oldest-gpu-arch@<:@=yes|no|DIR@:>@], [Oldest architecture make compatible for (default=70)]),
+AC_ARG_WITH([oldest-gpu-arch], AS_HELP_STRING([--with-oldest-gpu-arch@<:@=60,61,70,75,80,86:>@], [Oldest architecture make compatible for (default=70)]),
 [
 	if test "$withval" = "86" ; then oldest_arch=86 
 	elif  test "$withval" = "80" ; then oldest_arch=80
@@ -251,7 +251,7 @@ fi
 #--extra-device-vectorization
 NVCCFLAGS+=" --default-stream per-thread --extra-device-vectorization -m64 -O3 --use_fast_math  -Xptxas --warn-on-local-memory-usage,--warn-on-spills, --generate-line-info -Xcompiler= -std=c++11 -DGPU -DSTDC_HEADERS=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_MEMORY_H=1 -DHAVE_STRINGS_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_UNISTD_H=1 -DHAVE_DLFCN_H=1"
 
-AC_ARG_ENABLE(gpu-cache-hints, [  --disable-gpu-cache-hints          Do not use the intrinsics for cache hints ],[
+AC_ARG_ENABLE(gpu-cache-hints, AS_HELP_STRING([--disable-gpu-cache-hints],[Do not use the intrinsics for cache hints]),[
   if test "$enableval" = no; then
   	NVCCFLAGS+=" -Xcompiler= -DDISABLECACHEHINTS"
   	AC_MSG_NOTICE([Disabling cache hint intrinsics requiring CUDA 11 or newer])  	
