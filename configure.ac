@@ -2,6 +2,8 @@ AC_INIT(cisTEM, [2.0.0-alpha])
 AM_INIT_AUTOMAKE([subdir-objects])
 AC_CONFIG_MACRO_DIR([m4])
 
+#TODO add help strings for all configure options!
+
 INPUT_CPPFLAGS="$CPPFLAGS"
 INPUT_CXXFLAGS="$CXXFLAGS"
 
@@ -143,44 +145,16 @@ AC_ARG_ENABLE(debugmode, [  --enable-debugmode      Compile in debug mode [[defa
   fi
   ])
   
-want_cuda="no"
+
 ###############################
 # BEGIN CUDA CHECKS AND SETS
 ###############################
-cuda_home_path="/usr/local/cuda"
-AC_MSG_NOTICE([Checking for gpu request and vars])
-AC_ARG_WITH([cuda], AS_HELP_STRING([--with-cuda@<:@=yes|no|DIR@:>@], [prefix where cuda is installed (default=no)]),
-[
-	with_cuda=$withval
-	if test "$withval" = "no"
-	then
-		want_cuda="no"
-	elif test "$withval" = "yes"
-	then
-		want_cuda="yes"
-	else
-		want_cuda="yes"
-		cuda_home_path=$withval
-	fi
-], [ want_cuda="no"] )
+want_cuda="no"
 
-
-if test "$want_cuda" = "yes" 
-then
-
-	use_gpu_cache_hints=""
-	AC_ARG_ENABLE(gpu-cache-hints, [  --disable-gpu-cache-hints          Do not use the intrinsics for cache hints ],[
-	  if test "$enableval" = no; then
-	  	use_gpu_cache_hints="-DDISABLECACHEHINTS"
-	  	AC_MSG_NOTICE([Disabling cache hint intrinsics requiring CUDA 11 or newer])  	
-	  fi])
-
-	# In Thrust 1.10 c++11 is deprecated. Not using those libs now, so squash warnings, but we should consider switching to a newer standard
-	AC_DEFINE(THRUST_IGNORE_DEPRECATED_CPP_11,true)
-
-	# Set conditional and run macro	
-	AX_CUDA
-	
+AX_CUDA  
+  	
+if test "$want_cuda" = "yes" ; then
+		
     AC_MSG_NOTICE([Adding the CUDA includes Setting up NVCC initial flags])
     CUDA_CPPFLAGS="$CUDA_CFLAGS $NVCCFLAGS"
     CUDA_CXXFLAGS="$CUDA_CFLAGS $NVCCFLAGS"
