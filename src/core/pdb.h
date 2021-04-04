@@ -113,7 +113,7 @@ class PDB {
 
 		int records_per_line;
 		double center_of_mass[3];
-		bool use_provided_com;
+		bool use_provided_com = false;
 
 		int number_of_particles_initialized;
 		long number_of_each_atom[NUMBER_OF_ATOM_TYPES];
