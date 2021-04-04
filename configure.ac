@@ -168,6 +168,13 @@ AC_ARG_WITH([cuda], AS_HELP_STRING([--with-cuda@<:@=yes|no|DIR@:>@], [prefix whe
 if test "$want_cuda" = "yes" 
 then
 
+	use_gpu_cache_hints=""
+	AC_ARG_ENABLE(gpu-cache-hints, [  --disable-gpu-cache-hints          Do not use the intrinsics for cache hints ],[
+	  if test "$enableval" = no; then
+	  	use_gpu_cache_hints="-DDISABLECACHEHINTS"
+	  	AC_MSG_NOTICE([Disabling cache hint intrinsics requiring CUDA 11 or newer])  	
+	  fi])
+
 	# In Thrust 1.10 c++11 is deprecated. Not using those libs now, so squash warnings, but we should consider switching to a newer standard
 	AC_DEFINE(THRUST_IGNORE_DEPRECATED_CPP_11,true)
 
@@ -177,8 +184,8 @@ then
     AC_MSG_NOTICE([Adding the CUDA includes Setting up NVCC initial flags])
     CUDA_CPPFLAGS="$CUDA_CFLAGS $NVCCFLAGS"
     CUDA_CXXFLAGS="$CUDA_CFLAGS $NVCCFLAGS"
-    CXXFLAGS="$CXXFLAGS -DENABLEGPU $CUDA_CFLAGS"
-    CPPFLAGS="$CPPFLAGS -DENABLEGPU $CUDA_CFLAGS"
+    CXXFLAGS="$CXXFLAGS -DENABLEGPU $use_gpu_cache_hints $CUDA_CFLAGS"
+    CPPFLAGS="$CPPFLAGS -DENABLEGPU $use_gpu_cache_hints $CUDA_CFLAGS"
     AC_MSG_NOTICE([Using CUDA_CXXFLAGS=$CUDA_CXXFLAGS])
     AC_MSG_NOTICE([Using CUDA_LIBS=$CUDA_LIBS])
 fi
