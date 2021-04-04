@@ -33,25 +33,35 @@ AC_MSG_NOTICE([Setting up initial flags])
 
 # check to see if compiler warnings are desired.
 
-AC_ARG_ENABLE([disable-warnings], AS_HELP_STRING([--disable compiler warnings], [Default=false]), [
+AC_ARG_ENABLE([disable-warnings], AS_HELP_STRING([--disable compiler warnings], [Default=false]), 
+[
+	# If flag do this
 	if test "x$enableval" = "no" ; then
-		WALLON=""
-		AC_MSG_NOTICE([DISABLE VAL $enableval])
-		
+		WARNINGS_ON=""		
 	else
-		WALLON="-Wall"
-				AC_MSG_NOTICE([ELSE VAL $enableval])
-		
+		if test "x$CXX" = "xicpc"; then		
+			WARNINGS_ON="-w2"
+		else
+			WARNINGS_ON="-Wall"	
+		fi		
 	fi
-], [WALLON="-Wall"])
+], 
+[ 
+		# If no flag do this
+		if test "x$CXX" = "xicpc"; then		
+			WARNINGS_ON="-w2"
+		else
+			WARNINGS_ON="-Wall"	
+		fi	
+])
 
 
 if test "x$CXX" = "xicpc"; then		
-	CXXFLAGS="$CXXFLAGS -O3 -no-prec-div -no-prec-sqrt $WALLON -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -std=c++11 -w2 -wd1125"
-	CPPFLAGS="$CPPFLAGS -O3 -no-prec-div -no-prec-sqrt $WALLON -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE"
+	CXXFLAGS="$CXXFLAGS -O3 -no-prec-div -no-prec-sqrt $WARNINGS_ON -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -std=c++11 -wd1125"
+	CPPFLAGS="$CPPFLAGS -O3 -no-prec-div -no-prec-sqrt $WARNINGS_ON -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE"
 else
-	CXXFLAGS="$CXXFLAGS -DNDEBUG -funroll-loops -O3 -pipe $WALLON -fexpensive-optimizations -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -std=c++11"		
-	CPPFLAGS="$CPPFLAGS -DNDEBUG -funroll-loops -O3 -pipe $WALLON -fexpensive-optimizations -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE"
+	CXXFLAGS="$CXXFLAGS -DNDEBUG -funroll-loops -O3 -pipe $WARNINGS_ON -fexpensive-optimizations -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -std=c++11"		
+	CPPFLAGS="$CPPFLAGS -DNDEBUG -funroll-loops -O3 -pipe $WARNINGS_ON -fexpensive-optimizations -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE"
 
 	#sqlite needs dl on gcc
 	
@@ -87,29 +97,32 @@ AM_CONDITIONAL([LINUX_AM], [test "$build_linux" = "yes"])
 AM_CONDITIONAL([WINDOWS_AM], [test "$build_windows" = "yes"])
 AM_CONDITIONAL([OSX_AM], [test "$build_mac" = "yes"])
 
-# Use all available processor instruction sets
-AC_ARG_ENABLE(latest-instruction-set, AS_HELP_STRING([--enable-latest-instruction-set],[Use latest available CPU instruction set [default=yes]]),[
-        AC_MSG_ERROR(["Enable val by default is $enableval"])
-
+# Use all available processor instruction sets - this defaults to no (I think) if the option is not flagged. See issue #296 on github
+instruction_set=""
+AC_ARG_ENABLE(latest-instruction-set, AS_HELP_STRING([--enable-latest-instruction-set],[Use the latest available CPU instruction set, only affects Intel compiler [default=yes]]),[
   if test "$enableval" = yes; then
-	if test "x$CXX" = "xicpc"; then	
-		CXXFLAGS="$CXXFLAGS -xHost"
-	fi
+	instruction_set=" -xHost -wd10382"
   fi
-])
+], [instruction_set=" -xHost -wd10382"])
 
-# MKL FIXME this looks like it is duplicated at line 134
+if test "x$CXX" = "xicpc"; then	
+	CXXFLAGS="$CXXFLAGS $instruction_set"
+fi
 
-AC_ARG_ENABLE(mkl, AS_HELP_STRING([--disable-mkl],[Do not use the Intel MKL]),[
-  if test "$enableval" = no; then
+# MKL
+
+use_mkl=1
+AC_ARG_ENABLE(mkl, AS_HELP_STRING([--disable-mkl],[Do not use the Intel MKL]),
+[
+ if test "$enableval" = no; then
         use_mkl=0
-  fi])
+ fi
+ ])
 
 
 # Static linking
 
 static_link="false"
-
 AC_ARG_ENABLE(staticmode, AS_HELP_STRING([--enable-staticmode],[Link statically [default=no]]),[
   if test "$enableval" = yes; then
 	static_link="true"
@@ -134,28 +147,24 @@ AS_HELP_STRING([--with-wx-config=FILE],[Use the given path to wx-config when det
     fi
 ])
 
-# MKL
 
-use_mkl=1
 
-AC_ARG_ENABLE(mkl, AS_HELP_STRING([--disable-mkl],[Do not use the Intel MKL]),[
-  if test "$enableval" = no; then
-  	use_mkl=0
-  fi])
+
 
 # debugmode
 
-AC_ARG_ENABLE(debugmode, AS_HELP_STRING([--enable-debugmode],[Compile in debug mode [default=no]]),[
+AC_ARG_ENABLE(debugmode, AS_HELP_STRING([--enable-debugmode],[Compile in debug mode [default=no]]),
+[
   if test "$enableval" = yes; then
   if test "x$CXX" = "xicpc"; then   
-    CXXFLAGS="-O2 -debug -no-prec-div -no-prec-sqrt $WALLON -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -DDEBUG -std=c++11 -w2 -wd1125"
-    CPPFLAGS="-O2 -debug -no-prec-div -no-prec-sqrt $WALLON -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -DDEBUG"
+    CXXFLAGS="-O2 -debug -no-prec-div -no-prec-sqrt $WARNINGS_ON -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -DDEBUG -std=c++11 -wd1125"
+    CPPFLAGS="-O2 -debug -no-prec-div -no-prec-sqrt $WARNINGS_ON -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -DDEBUG"
   else
-    CPPFLAGS="-O2 -g -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -DDEBUG $WALLON $INPUT_CPPFLAGS"
-    CXXFLAGS="-O2 -g -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -DDEBUG -std=c++11 $WALLON $INPUT_CXXFLAGS"
+    CPPFLAGS="-O2 -g -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -DDEBUG $WARNINGS_ON $INPUT_CPPFLAGS"
+    CXXFLAGS="-O2 -g -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -DDEBUG -std=c++11 $WARNINGS_ON $INPUT_CXXFLAGS"
   fi
   fi
-  ])
+ ])
   
 
 ###############################
