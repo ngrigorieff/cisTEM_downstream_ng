@@ -99,11 +99,11 @@ AM_CONDITIONAL([OSX_AM], [test "$build_mac" = "yes"])
 
 # Use all available processor instruction sets - this defaults to no (I think) if the option is not flagged. See issue #296 on github
 instruction_set=""
-AC_ARG_ENABLE(latest-instruction-set, AS_HELP_STRING([--enable-latest-instruction-set],[Use the latest available CPU instruction set, only affects Intel compiler [default=yes]]),[
+AC_ARG_ENABLE(latest-instruction-set, AS_HELP_STRING([--enable-latest-instruction-set],[Use the latest available CPU instruction set, only affects Intel compiler [default=no]]),[
   if test "$enableval" = yes; then
 	instruction_set=" -xHost -wd10382"
   fi
-], [instruction_set=" -xHost -wd10382"])
+]) #, [instruction_set=" -xHost -wd10382"]) if we wanted default to be yes, this fourth arg should be included.
 
 if test "x$CXX" = "xicpc"; then	
 	CXXFLAGS="$CXXFLAGS $instruction_set"
