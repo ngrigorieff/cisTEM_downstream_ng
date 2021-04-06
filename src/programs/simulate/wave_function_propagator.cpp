@@ -372,8 +372,8 @@ float WaveFunctionPropagator::DoPropagation(Image* sum_image, Image* scattering_
 //		phase_grating[0].AddGaussianNoise(scattering_potential[iSlab].ReturnSumOfSquares(0.0f));
 //		phase_grating[0].AddConstant(scattering_potential[iSlab].ReturnAverageOfRealValues(0.0f));
 
-//		scattering_potential[iSlab].ClipInto(&phase_grating[0],scattering_potential[iSlab].ReturnAverageOfRealValuesOnEdges());
-		scattering_potential[iSlab].ClipInto(&phase_grating[0],0.0f);
+		scattering_potential[iSlab].ClipInto(&phase_grating[0],scattering_potential[iSlab].ReturnAverageOfRealValuesOnEdges());
+//		scattering_potential[iSlab].ClipInto(&phase_grating[0],0.0f);
 
 
 
