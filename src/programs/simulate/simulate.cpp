@@ -261,7 +261,7 @@ public:
 		{
 			case none :
 				size = GetSpecimenVolume(); if (only_2d) { size.z = 1; }
-				// Sets to zero and returns fals if no allocation needed.
+				// Sets to zero and returns false if no allocation needed.
 				if  (IsAllocationNecessary(image_to_allocate, size))
 				{
 					image_to_allocate->Allocate(size.x, size.y, size.z, should_be_in_real_space);
@@ -486,11 +486,11 @@ class SimulateApp : public MyApp
 	float particle_shift_x = 0.0f;
 	float particle_shift_y =0.0f;
 	float DO_BEAM_TILT_FULL = true;
-	float amplitude_contrast;
+	float amplitude_contrast = 0.1f;
 
 
-    float bFactor_scaling;
-    float min_bFactor;
+    float bFactor_scaling = 1.f;
+    float min_bFactor = 0.f;
 
     FrealignParameterFile  parameter_file;
     cisTEMParameters parameter_star;
@@ -742,10 +742,10 @@ void SimulateApp::DoInteractiveUserInput()
 	 bool add_more_pdbs = true;
 	 bool supply_origin = false;
 	 int iPDB = 0;
-	 int iOrigin;
-	 int iParticleCopy;
-	 double temp_double;
-	 long temp_long;
+	 int iOrigin = 0;
+	 int iParticleCopy = 0;
+	 double temp_double = 0;
+	 long temp_long = 0;
 
 	 //////////
 	/////////// Check the command line options, could this be done at the top?
@@ -1119,13 +1119,12 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 //	img.QuickAndDirtyWriteSlice("/groups/grigorieff/home/himesb/tmp/withShift.mrc",1,1,false);
 //	exit(-1);
 
-	long current_atom;
+	long current_atom = 0;
 	long nOutOfBounds = 0;
 	long iTilt_IDX;
 	int iSlab = 0;
 	int current_3D_slice_to_save = 0;
-	float *shift_x, *shift_y, *shift_z;
-	float *mag_diff;
+	float *shift_x, *shift_y, *shift_z, *mag_diff;
 	float euler1(0), euler2(0), euler3(0);
 
 	// CTF parameters:  There should be an associated variablility with tilt angle TODO and get rid of extra parameters
@@ -1133,12 +1132,12 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 	float wanted_spherical_aberration = this->spherical_aberration; // mm
 	float wanted_defocus_1_in_angstroms = this->defocus; // A
 	float wanted_defocus_2_in_angstroms = this->defocus; //A
-	float wanted_astigmatism_azimuth = 0.0; // degrees
-	float astigmatism_angle_randomizer = 0.0; //
-	float defocus_randomizer = 0.0;
+	float wanted_astigmatism_azimuth = 0.0f; // degrees
+	float astigmatism_angle_randomizer = 0.0f; //
+	float defocus_randomizer = 0.0f;
 	float wanted_additional_phase_shift_in_radians  = this->extra_phase_shift*PI;
     float *propagator_distance; // in Angstom, <= defocus tolerance.
-    float defocus_offset = 0;
+    float defocus_offset = 0.f;
 
 
 
@@ -1875,16 +1874,17 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 
 			coords.Allocate(&scattering_potential[iSlab], (PaddingStatus)solvent, true, true);
 			scattering_potential[iSlab].SetToConstant(0.0f);
-			coords.Allocate(&inelastic_potential[iSlab], (PaddingStatus)solvent, true, true);
 
-//			inelastic_potential[iSlab].Allocate(current_specimen.vol_nX, current_specimen.vol_nY,1);
+			coords.Allocate(&inelastic_potential[iSlab], (PaddingStatus)solvent, true, true);
 			inelastic_potential[iSlab].SetToConstant(0.0f);
 
+//			inelastic_potential[iSlab].Allocate(current_specimen.vol_nX, current_specimen.vol_nY,1);
 
 
 			if (SAVE_REF)
 			{
 				coords.Allocate(&ref_potential[iSlab], (PaddingStatus)solvent, true, true);
+				ref_potential[iSlab].SetToConstant(0.0f);
 //				ref_potential[iSlab].Allocate(current_specimen.vol_nX, current_specimen.vol_nY,1);
 			}
 
@@ -2339,10 +2339,10 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 
 
 
-			timer.start("Deallocate Slabs");
+//			timer.start("Deallocate Slabs");
 //			scattering_slab.Deallocate();
 //			inelastic_slab.Deallocate();
-			timer.lap("Deallocate Slabs");
+//			timer.lap("Deallocate Slabs");
 
 
 			if (DO_PHASE_PLATE)
@@ -2597,6 +2597,7 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 			}
 
 
+
 			if (DEBUG_POISSON == false && is_image_loop && DO_PHASE_PLATE == false)
 			{
 				timer.start("Poisson Noise");
@@ -2745,6 +2746,8 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 
 			wxPrintf("tilt %d, frame %d\n",iTilt,this_frame);
 			wxPrintf("size 0/this %ld/ %ld\n", output_image_stack[0].real_memory_allocated / 2,output_image_stack[this_frame].real_memory_allocated / 2);
+			wxPrintf("OutputMean %d in tilt loop mean is %3.3e\n", __LINE__, output_image_stack[this_frame].ReturnAverageOfRealValues(0.0, false));
+
 			// Forward FFT
 			output_image_stack[this_frame].ForwardFFT(true);
 			if (EXPOSURE_FILTER_REF && SAVE_REF) output_reference_stack[this_frame].ForwardFFT(true);
@@ -2763,6 +2766,7 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 				dose_filter_sum_of_squares[pixel_counter] += powf(dose_filter[pixel_counter],2);
 			}
 
+			wxPrintf("OutputMean %d in tilt loop mean is %3.3e\n", __LINE__, output_image_stack[this_frame].ReturnAverageOfRealValues(0.0, false));
 
 
 			if (ONLY_SAVE_SUMS)
@@ -2780,6 +2784,7 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 		int exposure_filter_range;
 		if (ONLY_SAVE_SUMS) exposure_filter_range = 1;
 		else exposure_filter_range = (int)number_of_frames;
+		wxPrintf("OutputMean %d in tilt loop mean is %3.3e\n", __LINE__, output_image_stack[0].ReturnAverageOfRealValues(0.0, false));
 
 		for (int iFrame = 0; iFrame < exposure_filter_range; iFrame ++)
 		{
@@ -2796,6 +2801,8 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 
 			output_image_stack[this_frame].BackwardFFT();
 			if (SAVE_REF) output_reference_stack[this_frame].BackwardFFT();
+			wxPrintf("OutputMean %d in tilt loop mean is %3.3e\n", __LINE__, output_image_stack[this_frame].ReturnAverageOfRealValues(0.0, false));
+
  		}
 
 
@@ -2985,6 +2992,7 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 		}
 
 		output_image_stack[iImg].WriteSlices(&mrc_out_final,1+n_tilts_saved,1+n_tilts_saved);
+		wxPrintf("Output mean is %3.3e\n", output_image_stack[iImg].ReturnAverageOfRealValues(0.0, false));
 		if (SAVE_REF)
 		{
 			output_reference_stack[iImg].WriteSlices(&mrc_ref_final,1+n_tilts_saved,1+n_tilts_saved);

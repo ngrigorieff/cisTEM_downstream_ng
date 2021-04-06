@@ -258,6 +258,8 @@ void WaveFunctionPropagator::SetInputWaveFunction(int size_x, int size_y)
 			phase_grating[iPar].Allocate(size_x,size_y,1);
 			amplitude_grating[iPar].Allocate(size_x,size_y,1);
 			aperture_grating[iPar].Allocate(size_x,size_y,1);
+			aperture_grating[iPar].SetToConstant(0.0f);
+
 			// We only want the real part to be set to 1
 			for (int iPixel = 0; iPixel < aperture_grating[iPar].real_memory_allocated; iPixel+=2)
 			{
@@ -365,10 +367,15 @@ float WaveFunctionPropagator::DoPropagation(Image* sum_image, Image* scattering_
 		SetFresnelPropagator(0.0f, propagator_distance[iSlab]);
 
 		phase_grating[0].SetToConstant(0.0f);
+//		phase_grating[0].AddGaussianNoise(0.01);
+//		phase_grating[0].MultiplyPixelWise(*phase_grating);
 //		phase_grating[0].AddGaussianNoise(scattering_potential[iSlab].ReturnSumOfSquares(0.0f));
 //		phase_grating[0].AddConstant(scattering_potential[iSlab].ReturnAverageOfRealValues(0.0f));
 
-		scattering_potential[iSlab].ClipInto(&phase_grating[0],scattering_potential[iSlab].ReturnAverageOfRealValuesOnEdges());
+//		scattering_potential[iSlab].ClipInto(&phase_grating[0],scattering_potential[iSlab].ReturnAverageOfRealValuesOnEdges());
+		scattering_potential[iSlab].ClipInto(&phase_grating[0],0.0f);
+
+
 
 		if (do_beam_tilt)
 		{
@@ -380,7 +387,6 @@ float WaveFunctionPropagator::DoPropagation(Image* sum_image, Image* scattering_
 			ctf[0].SetBeamTilt(beam_tilt_x, beam_tilt_y, 0.0f, 0.0f);
 			ctf[1].SetBeamTilt(beam_tilt_x, beam_tilt_y, 0.0f, 0.0f);
 		}
-
 
 
 
@@ -693,8 +699,8 @@ float WaveFunctionPropagator::DoPropagation(Image* sum_image, Image* scattering_
 
 	}
 
-	wave_function[0].SetToConstant(0.0);
-	wave_function[1].SetToConstant(0.0);
+	wave_function[0].SetToConstant(0.0f);
+	wave_function[1].SetToConstant(0.0f);
 
 	wave_function[0].AddImage(&t_N[0]);
 	wave_function[0].SubtractImage(&t_N[1]);
@@ -723,13 +729,14 @@ float WaveFunctionPropagator::DoPropagation(Image* sum_image, Image* scattering_
 
 	  }
 
+
+	sum_image[tilt_IDX].SetToConstant(0.0f);
 	#pragma omp simd
 	// Now get the square modulus of the wavefunction
 	for (long iPixel = 0; iPixel < wave_function[0].real_memory_allocated; iPixel++)
 	{
 		 sum_image[tilt_IDX].real_values[iPixel] = (wave_function[0].real_values[iPixel]*wave_function[0].real_values[iPixel] + wave_function[1].real_values[iPixel]*wave_function[1].real_values[iPixel]);
 	}
-
 
 
 
@@ -753,6 +760,7 @@ float WaveFunctionPropagator::DoPropagation(Image* sum_image, Image* scattering_
 
 		wxPrintf("Phase contrast estimate at %3.3e\n",phase_contrast);
 	}
+
 
 
 
