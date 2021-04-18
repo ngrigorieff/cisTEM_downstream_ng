@@ -2,23 +2,26 @@
 
 AnglesAndShifts::AnglesAndShifts()
 {
-	euler_phi = 0.0;
-	euler_theta = 0.0;
-	euler_psi = 0.0;
-	shift_x = 0.0;
-	shift_y = 0.0;
+	euler_phi = 0.0f;
+	euler_theta = 0.0f;
+	euler_psi = 0.0f;
+	shift_x = 0.0f;
+	shift_y = 0.0f;
+	shift_z = 0.0f;
 	euler_matrix.SetToIdentity();
 }
 
-AnglesAndShifts::AnglesAndShifts(float wanted_euler_phi, float wanted_euler_theta, float wanted_euler_psi, float wanted_shift_x, float wanted_shift_y)
+
+AnglesAndShifts::AnglesAndShifts(float wanted_euler_phi, float wanted_euler_theta, float wanted_euler_psi, float wanted_shift_x, float wanted_shift_y, float wanted_shift_z)
 {
-	Init(wanted_euler_phi, wanted_euler_theta, wanted_euler_psi, wanted_shift_x, wanted_shift_y);
+	Init(wanted_euler_phi, wanted_euler_theta, wanted_euler_psi, wanted_shift_x, wanted_shift_y, wanted_shift_z);
 }
 
-void AnglesAndShifts::Init(float wanted_euler_phi_in_degrees, float wanted_euler_theta_in_degrees, float wanted_euler_psi_in_degrees, float wanted_shift_x, float wanted_shift_y)
+void AnglesAndShifts::Init(float wanted_euler_phi_in_degrees, float wanted_euler_theta_in_degrees, float wanted_euler_psi_in_degrees, float wanted_shift_x, float wanted_shift_y, float wanted_shift_z)
 {
 	shift_x = wanted_shift_x;
 	shift_y = wanted_shift_y;
+	shift_z = wanted_shift_z;
 	GenerateEulerMatrices(wanted_euler_phi_in_degrees, wanted_euler_theta_in_degrees, wanted_euler_psi_in_degrees);
 }
 

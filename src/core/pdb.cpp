@@ -1019,7 +1019,8 @@ void PDB::TransformLocalAndCombine(PDB *pdb_ensemble, int number_of_pdbs, int fr
 
 						float offset_X = offset_radius * cosf(offset_angle) * cosf(deg_2_rad(emulate_tilt_angle));
 						float offset_Y = offset_radius * sinf(offset_angle);
-
+						float offset_Z = pdb_ensemble[current_pdb].vol_angZ (2 * tanf(deg_2_rad(emulate_tilt_angle)));
+						wxPrintf("offset x,y,z %f %f %f\n",offset_X,offsetof(,offset_Z); // FIXME not used
 
 	//					RotationMatrix randmat;
 						// FIXME this will not sample the euler sphere propertly

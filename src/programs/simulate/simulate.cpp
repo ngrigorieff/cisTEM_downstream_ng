@@ -2746,7 +2746,6 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 
 			wxPrintf("tilt %d, frame %d\n",iTilt,this_frame);
 			wxPrintf("size 0/this %ld/ %ld\n", output_image_stack[0].real_memory_allocated / 2,output_image_stack[this_frame].real_memory_allocated / 2);
-			wxPrintf("OutputMean %d in tilt loop mean is %3.3e\n", __LINE__, output_image_stack[this_frame].ReturnAverageOfRealValues(0.0, false));
 
 			// Forward FFT
 			output_image_stack[this_frame].ForwardFFT(true);
@@ -2766,7 +2765,6 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 				dose_filter_sum_of_squares[pixel_counter] += powf(dose_filter[pixel_counter],2);
 			}
 
-			wxPrintf("OutputMean %d in tilt loop mean is %3.3e\n", __LINE__, output_image_stack[this_frame].ReturnAverageOfRealValues(0.0, false));
 
 
 			if (ONLY_SAVE_SUMS)
@@ -2784,7 +2782,6 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 		int exposure_filter_range;
 		if (ONLY_SAVE_SUMS) exposure_filter_range = 1;
 		else exposure_filter_range = (int)number_of_frames;
-		wxPrintf("OutputMean %d in tilt loop mean is %3.3e\n", __LINE__, output_image_stack[0].ReturnAverageOfRealValues(0.0, false));
 
 		for (int iFrame = 0; iFrame < exposure_filter_range; iFrame ++)
 		{
@@ -2801,7 +2798,6 @@ void SimulateApp::probability_density_2d(PDB *pdb_ensemble, int time_step)
 
 			output_image_stack[this_frame].BackwardFFT();
 			if (SAVE_REF) output_reference_stack[this_frame].BackwardFFT();
-			wxPrintf("OutputMean %d in tilt loop mean is %3.3e\n", __LINE__, output_image_stack[this_frame].ReturnAverageOfRealValues(0.0, false));
 
  		}
 
