@@ -24,3 +24,25 @@
 
 
 
+
+
+class SamplesTestingApp : public wxAppConsole
+{
+	wxString hiv_image_80x80x1_filename;
+	wxString hiv_images_80x80x10_filename;
+	wxString sine_wave_128x128x1_filename;
+	wxString numeric_text_filename;
+	wxString temp_directory;
+
+	public:
+        virtual bool OnInit();
+
+   
+		bool DoCalculation();
+		void DoInteractiveUserInput();
+	
+
+		bool test_has_passed;
+
+
+};

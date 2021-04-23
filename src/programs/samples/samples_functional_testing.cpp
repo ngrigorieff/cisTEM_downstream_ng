@@ -1,13 +1,23 @@
+#include <wx/wx.h>
+#include <wx/app.h>
+#include <wx/cmdline.h>
+#include <cstdio>
+#include "wx/socket.h"
+
+#include "shared/shared_functions.cpp"
+#include "samples_functional_testing.hpp"
 #include "../../core/core_headers.h"
+#include "0_Simple/disk_io_image.cpp"
+
 
 // embedded images..
 
-#include "../console_test/hiv_image_80x80x1.cpp"
-#include "../console_test/hiv_images_shift_noise_80x80x10.cpp"
-#include "../console_test/sine_128x128x1.cpp"
+// #include "../console_test/hiv_image_80x80x1.cpp"
+// #include "../console_test/hiv_images_shift_noise_80x80x10.cpp"
+// #include "../console_test/sine_128x128x1.cpp"
 
-#define PrintResult(result)	PrintResultSlave(result, __LINE__);
-#define FailTest {if (test_has_passed == true) PrintResultSlave(false, __LINE__); test_has_passed = false;}//#include "samples_functional_testing.hpp"
+// #define PrintResult(result)	PrintResultSlave(result, __LINE__);
+// #define FailTest {if (test_has_passed == true) PrintResultSlave(false, __LINE__); test_has_passed = false;}//#include "samples_functional_testing.hpp"
 
 
 
@@ -19,35 +29,34 @@
 
 
 
-class SamplesApp : public MyApp
+
+
+IMPLEMENT_APP(SamplesTestingApp);
+
+bool SamplesTestingApp::OnInit()
 {
-	wxString hiv_image_80x80x1_filename;
-	wxString hiv_images_80x80x10_filename;
-	wxString sine_wave_128x128x1_filename;
-	wxString numeric_text_filename;
-	wxString temp_directory;
 
-	public:
-		bool DoCalculation();
-		void DoInteractiveUserInput();
-
-		bool test_has_passed;
+	wxPrintf("Starting samples testing.\n");
 
 
-};
+
+	DoDiskIOImageTests();
 
 
-IMPLEMENT_APP(SamplesApp);
+	wxPrintf("Samples testing done.\n");
+	return false;
+}
 
 
-void SamplesApp::DoInteractiveUserInput()
+void SamplesTestingApp::DoInteractiveUserInput()
 {
 	 UserInput *my_input = new UserInput("Simulator", 0.25);
 	 test_has_passed = false;
 	 delete my_input;
 }
 
-bool SamplesApp::DoCalculation()
+
+bool SamplesTestingApp::DoCalculation()
 {
 
 	//wxPrintf("")
@@ -65,7 +74,13 @@ bool SamplesApp::DoCalculation()
 
 
 	wxPrintf("\n\n\n");
+
+
+
+
 	return false;
 }
+
+
 
 
