@@ -25,8 +25,8 @@
 #define SRC_PROGRAMS_SAMPLES_0_SIMPLE_DISK_IO_IMAGE_HPP_
 
 // Assuming this is called from samples_functional_testing.cpp, you will have a file written to disk "${HOME}/hiv_image_80x80x1.mrc"
-wxString temp_directory = wxFileName::GetHomeDir();
-wxString hiv_image_80x80x1_filename = temp_directory + "/hiv_image_80x80x1.mrc";
+// wxString temp_directory = wxFileName::GetHomeDir();
+// wxString hiv_image_80x80x1_filename = temp_directory + "/hiv_image_80x80x1.mrc";
 
 // The easiest way to read or write and image is simply to use the "quick and dirty methods" in Image class
 // TODO instantiate an image object, read it in using quick and dirt read slice.
