@@ -4,7 +4,7 @@ Provides destructors that clear the file from drive.
 Inherited by specific sub classes in the same folder
 */
 
-#include <string>
+#include "../../../core/core_headers.h"
 class TestFile {
   
 

@@ -1,16 +1,17 @@
-#include "wx/socket.h"
-#include <cstdio>
-#include <wx/app.h>
-#include <wx/cmdline.h>
-#include <wx/wx.h>
-
 #include "../../core/core_headers.h"
-#include "0_Simple/disk_io_image.cpp"
+#include <cstdio>
+#include <list>
+
+
 
 #include "classes/TestFile.cpp"
 #include "classes/EmbeddedTestFile.cpp"
 #include "classes/NumericTestFile.cpp"
-#include "samples_functional_testing.hpp"
+#include "classes/TestResult.hpp"
+
+#include "0_Simple/disk_io_image.cpp"
+
+
 // #define PrintResult(result)	PrintResultSlave(result, __LINE__);
 // #define FailTest {if (test_has_passed == true) PrintResultSlave(false,
 // __LINE__); test_has_passed = false;}//#include
@@ -25,42 +26,45 @@
 #include "../console_test/hiv_images_shift_noise_80x80x10.cpp"
 #include "../console_test/sine_128x128x1.cpp"
 
+class SamplesTestingApp : public wxAppConsole
+{
+
+	// constructor: set file names and temp folder, write embbeded files to harddrive.
+  wxString temp_directory = wxFileName::GetHomeDir();
+  wxString hiv_image_80x80x1_filename = 	temp_directory + "/hiv_image_80x80x1.mrc";
+  wxString hiv_images_80x80x10_filename = 	temp_directory + "/hiv_images_shift_noise_80x80x10.mrc";  
+  wxString sine_wave_128x128x1_filename = 	temp_directory + "/sine_wave_128x128x1.mrc";  
+  wxString numeric_text_filename = 			temp_directory + "/numbers.num";
+
+	std::list<TestFile*> testFiles;
+	
+	public:
+		SamplesTestingApp();
+		~SamplesTestingApp();
+    	bool OnInit();
+		void WriteFiles();
+		//void WriteEmbeddedArray(const char *filename, const unsigned char *array, long length);
+		//void WriteNumericTextFile(const char *filename);
+   
+		bool DoCalculation();
+		void DoInteractiveUserInput();
+
+};
+
+
 IMPLEMENT_APP(SamplesTestingApp);
 
 bool SamplesTestingApp::OnInit() {
 
-  wxPrintf("Starting samples testing.\n");
+  wxPrintf("Starting samples testing.\n\n");
 
-  DoDiskIOImageTests(hiv_image_80x80x1_filename, temp_directory);
+  DoDiskIOImageTests(hiv_images_80x80x10_filename, temp_directory);
 
-  wxPrintf("Samples testing done.\n");
+  wxPrintf("\n\nSamples testing done.\n");
   return false;
 }
 
-// void SamplesTestingApp::DoInteractiveUserInput() {
-//   UserInput *my_input = new UserInput("Simulator", 0.25);
-//   test_has_passed = false;
-//   delete my_input;
-// }
 
-// bool SamplesTestingApp::DoCalculation() {
-
-//   // wxPrintf("")
-
-//   wxPrintf("\n");
-
-//   // Do tests..
-//   wxPrintf("Hello World\n");
-// #ifdef ENABLEGPU
-//   wxPrintf("The functional samples have been compiled with GPU support!\n");
-// #else
-//   wxPrintf("The functional samples NOT have been compiled with GPU support!\n");
-// #endif
-
-//   wxPrintf("\n\n\n");
-
-//   return false;
-// }
 
 void SamplesTestingApp::WriteFiles() {
 
@@ -77,13 +81,7 @@ void SamplesTestingApp::WriteFiles() {
 
 
 SamplesTestingApp::SamplesTestingApp() {
-	// constructor: set file names and temp folder, write embbeded files to harddrive.
-  temp_directory = wxFileName::GetHomeDir();
-  hiv_image_80x80x1_filename = temp_directory + "/hiv_image_80x80x1.mrc";
-  hiv_images_80x80x10_filename =
-      temp_directory + "/hiv_images_shift_noise_80x80x10.mrc";
-  sine_wave_128x128x1_filename = temp_directory + "/sine_wave_128x128x1.mrc";
-  numeric_text_filename = temp_directory + "/numbers.num";
+
   WriteFiles();
 }
 

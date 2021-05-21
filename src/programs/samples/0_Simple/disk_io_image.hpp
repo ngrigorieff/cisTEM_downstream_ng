@@ -24,6 +24,8 @@
 #ifndef SRC_PROGRAMS_SAMPLES_0_SIMPLE_DISK_IO_IMAGE_HPP_
 #define SRC_PROGRAMS_SAMPLES_0_SIMPLE_DISK_IO_IMAGE_HPP_
 
+#include "../../../core/core_headers.h"
+#include  "../classes/TestResult.hpp"
 // Assuming this is called from samples_functional_testing.cpp, you will have a file written to disk "${HOME}/hiv_image_80x80x1.mrc"
 // wxString temp_directory = wxFileName::GetHomeDir();
 // wxString hiv_image_80x80x1_filename = temp_directory + "/hiv_image_80x80x1.mrc";

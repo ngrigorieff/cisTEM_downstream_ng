@@ -220,7 +220,8 @@ noinst_HEADERS += 	gui/MatchTemplatePanel.h \
 					
 endif      
 if ENABLESAMPLES_AM
-noinst_HEADERS +=  programs/samples/samples_functional_testing.hpp 
+noinst_HEADERS +=  programs/samples/samples_functional_testing.hpp \
+                   programs/samples/classes/TestResult.hpp
 endif
 	
 noinst_LIBRARIES = libcore.a libguicore.a
@@ -662,7 +663,7 @@ convert_eer_to_mrc_CPPFLAGS = $(WX_CPPFLAGS_BASE)
 convert_eer_to_mrc_LDADD = libcore.a $(WX_LIBS_BASE)
 
 if ENABLESAMPLES_AM
-samples_functional_testing_SOURCES = programs/samples/samples_functional_testing.cpp
+samples_functional_testing_SOURCES = programs/samples/samples_functional_testing.cpp programs/samples/classes/TestResult.cpp
 samples_functional_testing_CXXFLAGS = $(WX_CPPFLAGS_BASE)
 samples_functional_testing_CPPFLAGS = $(WX_CPPFLAGS_BASE)
 if ENABLEGPU_AM 

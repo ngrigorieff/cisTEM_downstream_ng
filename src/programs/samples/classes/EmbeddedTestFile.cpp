@@ -1,4 +1,4 @@
-#include <string>
+#include "../../../core/core_headers.h"
 class EmbeddedTestFile: public TestFile {
   public:
   EmbeddedTestFile(wxString path, const unsigned char *dataArray, long length);
