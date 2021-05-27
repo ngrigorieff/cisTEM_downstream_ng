@@ -14,3 +14,14 @@ Initially, there is no provisioning for compilation of these individual programs
 
 3_SpecializedFFTRoutines
 
+/* Basic test fomrat
+  testName = "TestName"; // If read slice fails, obviously this fails
+    // Init variable
+    try {
+      // Try things
+
+    }
+    catch (...) {passed = false;} 
+    tr.PrintResults(testName, passed);
+*/
+

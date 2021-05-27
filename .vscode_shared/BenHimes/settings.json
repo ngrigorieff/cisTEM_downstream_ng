@@ -28,4 +28,5 @@
     },
     "DockerRun.DisableDockerrc": true,
     "C_Cpp.intelliSenseEngineFallback": "Enabled",
+    "html.format.endWithNewline": true,
 }
