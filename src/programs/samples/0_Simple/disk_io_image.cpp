@@ -80,7 +80,9 @@ bool DoDiskIOImageTests(wxString hiv_image_80x80x10_filename, wxString temp_dire
     MRCFile output_file;
     try {
       wxString temp_filename = temp_directory + "/tmp1.mrc";
+      wxPrintf("tempfile name %s\n",temp_filename);
       output_file.OpenFile(temp_filename.ToStdString(), false);
+      test_image.WriteSlice(&output_file, 1);
     }
     catch (...) {passed = false;} 
     tr.PrintResults(testName, passed);

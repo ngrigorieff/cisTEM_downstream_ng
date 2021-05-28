@@ -320,6 +320,9 @@ void GpuImage::SetupInitialValues()
 	cudaErr(cudaDeviceGetAttribute(&number_of_streaming_multiprocessors, cudaDevAttrMultiProcessorCount, device_idx));
 	limit_SMs_by_threads = 1;
 
+	cudaMallocManaged(&tmpVal, sizeof(float));
+	cudaMallocManaged(&tmpValComplex, sizeof(double));
+	
 	UpdateBoolsToDefault();
 
 }
@@ -400,9 +403,6 @@ void GpuImage::CopyFromCpuImage(Image &cpu_image)
 	is_host_memory_pinned = true;
 	is_meta_data_initialized = true;
 	cudaHostGetDevicePointer( &pinnedPtr, real_values, 0);
-
-	cudaMallocManaged(&tmpVal, sizeof(float));
-	cudaMallocManaged(&tmpValComplex, sizeof(double));
 
 
 	hostImage = &cpu_image;
@@ -1153,6 +1153,18 @@ void GpuImage::MultiplyPixelWise(GpuImage &other_image)
 	{
 		nppErr(nppiMul_32fc_C1IR_Ctx((Npp32fc *)other_image.complex_values_gpu, pitch, (Npp32fc *)complex_values_gpu, pitch, npp_ROI, nppStream));
 	}
+}
+
+void GpuImage::SetToConstant( float wanted_constant)
+{
+	// FIXME this assumes padded values are zero which is not strictly true
+	MyAssertTrue(is_in_memory_gpu, "Image not allocated");
+	MyAssertTrue(is_in_real_space, "This method is for real space, use ReturnSumSquareModulusComplexValues for Fourier space")
+
+
+	NppInit();
+	nppErr(nppiSet_32f_C1R_Ctx((Npp32f) wanted_constant, (Npp32f *)real_values_gpu, pitch, npp_ROI, nppStream));
+
 }
 
 

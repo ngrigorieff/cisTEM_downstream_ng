@@ -224,6 +224,8 @@ public:
 	void SquareRootRealValues();
 	void LogarithmRealValues();
 	void ExponentiateRealValues();
+	void 
+	SetToConstant( float wanted_constant);
 	void AddConstant(const float add_val);
 	void AddConstant(const Npp32fc add_val);
 

@@ -5,7 +5,7 @@
 #include  "../classes/TestResult.hpp"
 
 #ifdef ENABLEGPU
-#include "../../gpu/gpu_core_headers.h"
+#include "../../../gpu/gpu_core_headers.h"
 #endif
 
 

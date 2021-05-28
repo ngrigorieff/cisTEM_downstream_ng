@@ -13,6 +13,7 @@
 #include "classes/TestResult.hpp"
 
 #include "0_Simple/disk_io_image.cpp"
+#include "0_Simple/disk_io_gpu_image.cpp"
 
 
 #include "../console_test/hiv_image_80x80x1.cpp"

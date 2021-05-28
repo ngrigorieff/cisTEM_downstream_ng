@@ -9,6 +9,9 @@ bool SamplesTestingApp::OnInit() {
   wxPrintf("Starting samples testing.\n\n");
 
   DoDiskIOImageTests(hiv_images_80x80x10_filename, temp_directory);
+#ifdef ENABLEGPU
+  DoDiskIOGpuImageTests(hiv_images_80x80x10_filename, temp_directory);
+#endif
 
   wxPrintf("\n\nSamples testing done.\n");
   return false;

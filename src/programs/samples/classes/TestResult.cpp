@@ -13,7 +13,7 @@ TestResult::~TestResult()
 
 void TestResult::PrintResults(wxString testName, bool& result) {
 
-    testName = indendation + testName + " test";
+    testName = indendation + testName; // + " test";
     result ? wxPrintf("\t[Success] : ") : wxPrintf("\t [Failed] : ");
 
     wxPrintf("  %s\n", testName);

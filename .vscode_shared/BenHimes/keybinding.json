@@ -1,0 +1,23 @@
+// Place your key bindings in this file to override the defaultsauto[]
+[
+    {
+        "key": "ctrl+shift+insert",
+        "command": "workbench.files.action.collapseExplorerFolders"
+    },// Place your key bindings in this file to override the defaultsauto[]
+[
+    {
+        "key": "ctrl+shift+insert",
+        "command": "workbench.files.action.collapseExplorerFolders"
+    },
+    {
+        "key": "ctrl+b",
+        "command": "workbench.action.tasks.runTask",
+        "args" : "BUILD intel,gpu,samples,debug"
+    }
+]
+    {
+        "key": "ctrl+b",
+        "command": "workbench.action.tasks.runTask",
+        "args" : "BUILD intel,gpu,samples,debug"
+    }
+]

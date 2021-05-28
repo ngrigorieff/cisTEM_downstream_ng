@@ -10,12 +10,20 @@
                 "/admin/software/wxWidgets3_static_INTEL/include/wx-3.0/wx/**"
             ],
             "forcedInclude": [],
-            "defines": [],
-            "compilerPath": "/usr/bin/gcc",
+            "defines": [
+                "ENABLEGPU",
+                "SAMPLES",
+                "EXPERIMENTAL",
+                "MKL"
+            ],
+            "compilerPath": "/usr/bin/g++-9",
             "cStandard": "c11",
             "cppStandard": "c++17",
             "browse": {
-                "limitSymbolsToIncludedHeaders": true
+                "limitSymbolsToIncludedHeaders": true,
+                "path": [
+                    "${workspaceFolder}"
+                ]
             }
         }
     ],
