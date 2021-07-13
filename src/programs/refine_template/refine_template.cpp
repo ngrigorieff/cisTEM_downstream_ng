@@ -557,6 +557,7 @@ bool RefineTemplateApp::DoCalculation()
 
 	best_scaled_mip.CopyFrom(&scaled_mip_image);
 	current_peak.value = FLT_MAX;
+	min_peak_radius = powf(min_peak_radius, 2);
 	wxPrintf("\n");
 	while (current_peak.value >= wanted_threshold)
 	{
